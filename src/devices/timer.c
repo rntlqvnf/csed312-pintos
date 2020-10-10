@@ -17,6 +17,9 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
+/* List of sleeping threads */
+struct list sleep_list;
+
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
@@ -171,6 +174,7 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
+  thread_wakeup();
   thread_tick ();
 }
 
@@ -243,4 +247,25 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
+}
+
+/* Form of list_less_func */ 
+bool
+tick_compare(struct list_elem* a, struct list_elem* b, void* aux)
+{
+  struct thread *thread_a = list_entry(a, struct thread, elem);
+  struct thread *thread_b = list_entry(b, struct thread, elem);
+  return thread_a->expire_tick < thread_b->expire_tick;
+}
+
+void
+thread_wakeup()
+{
+  while(!list_empty(&sleep_list))
+  {
+    if(list_entry(list_front(&sleep_list), struct thread, elem)->expire_tick <= ticks)
+    {
+      thread_unblock(list_entry(list_pop_front(&sleep_list), struct thread, elem));
+    }
+  }
 }
