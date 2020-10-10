@@ -100,7 +100,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int64_t expire_tick;
+    int64_t sleep_deadline_ticks;
   };
 
 /* If false (default), use round-robin scheduler.

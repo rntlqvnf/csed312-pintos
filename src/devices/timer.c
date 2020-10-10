@@ -18,7 +18,7 @@
 #endif
 
 /* List of sleeping threads */
-struct list sleep_list;
+static struct list sleep_list;
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
@@ -40,6 +40,7 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
+  list_init(&sleep_list);
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -95,8 +96,12 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  enum intr_level old_level = intr_disable();
+
+  sleep_until(start + ticks);
+
+  intr_set_level(old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -255,7 +260,7 @@ tick_compare(struct list_elem* a, struct list_elem* b, void* aux)
 {
   struct thread *thread_a = list_entry(a, struct thread, elem);
   struct thread *thread_b = list_entry(b, struct thread, elem);
-  return thread_a->expire_tick < thread_b->expire_tick;
+  return thread_a->sleep_deadline_ticks < thread_b->sleep_deadline_ticks;
 }
 
 void
@@ -263,9 +268,24 @@ thread_wakeup()
 {
   while(!list_empty(&sleep_list))
   {
-    if(list_entry(list_front(&sleep_list), struct thread, elem)->expire_tick <= ticks)
+    if(list_entry(list_front(&sleep_list), struct thread, elem)->sleep_deadline_ticks <= ticks)
     {
       thread_unblock(list_entry(list_pop_front(&sleep_list), struct thread, elem));
     }
   }
+}
+
+void 
+sleep_until(int64_t sleep_deadline_ticks)
+{
+  insert_sleep_list_with_deadline(sleep_deadline_ticks);
+  thread_block();
+}
+
+void
+insert_sleep_list_with_deadline(int64_t sleep_deadline_ticks)
+{
+  struct thread *current_thread = thread_current();
+  current_thread->sleep_deadline_ticks = sleep_deadline_ticks;
+  list_insert_ordered(&sleep_list, &current_thread->elem, tick_compare, NULL);
 }
