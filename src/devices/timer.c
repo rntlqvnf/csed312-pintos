@@ -256,7 +256,7 @@ real_time_delay (int64_t num, int32_t denom)
 
 /* Form of list_less_func */ 
 bool
-tick_compare(struct list_elem* a, struct list_elem* b, void* aux)
+tick_compare(const struct list_elem* a, const struct list_elem* b, void* aux)
 {
   struct thread *thread_a = list_entry(a, struct thread, elem);
   struct thread *thread_b = list_entry(b, struct thread, elem);
@@ -272,6 +272,8 @@ thread_wakeup()
     {
       thread_unblock(list_entry(list_pop_front(&sleep_list), struct thread, elem));
     }
+    else
+      break;
   }
 }
 
