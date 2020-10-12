@@ -375,15 +375,15 @@ priority_donate (struct lock* lock)
   ASSERT (lock != NULL);
 
   lock->holder->priority = thread_current()->priority;
-  insert_donation(lock);
+  list_push_front(&lock->holder->donators, &thread_current()->donate_elem);
 }
 
 void 
 priority_restore (struct lock* lock)
 {
-  struct donation* previousDonation = list_entry(list_pop_front(&thread_current()->donations), struct donation, elem);
-  if(list_empty(&thread_current()->donations))
-    thread_current()->priority = previousDonation->priority;
+  struct thread* previousDonator = list_entry(list_pop_front(&thread_current()->donators), struct thread, donate_elem);
+  if(list_empty(&thread_current()->donators))
+    thread_current()->priority = thread_current()->original_priority;
   else
-    thread_current()->priority = list_entry(list_front(&thread_current()->donations), struct donation, elem)->priority;
+    thread_current()->priority = list_entry(list_front(&thread_current()->donators), struct thread, donate_elem)->priority;
 }

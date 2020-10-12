@@ -92,6 +92,7 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    struct list_elem donate_elem;       
     int64_t sleep_deadline_ticks;
     struct lock *lock_on_wait;
     struct list donators;
