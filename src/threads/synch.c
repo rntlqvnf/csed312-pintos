@@ -201,17 +201,15 @@ lock_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   if(lock->holder == NULL)
-  {
-    list_push_front(thread_current()->donations, &donation_create(thread_current())->elem);
-  }
+    insert_donation();
   else
   {
+    thread_current()->lock_on_wait = lock;
     if(require_donation(lock))
-    {
-
-    }
+      priority_donate(lock);
   }
 
+  ready_list_sort();
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -353,6 +351,12 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
+void
+insert_donation()
+{
+  list_push_front(thread_current()->donations, &donation_create(thread_current())->elem);
+}
+
 bool 
 require_donation (struct lock* lock)
 {
@@ -365,6 +369,9 @@ require_donation (struct lock* lock)
 void 
 priority_donate (struct lock* lock)
 {
-  
   ASSERT (lock != NULL);
+
+  lock->holder->priority = thread_current()->priority;
+  insert_donation();
+  lock->is_donated = true;
 }

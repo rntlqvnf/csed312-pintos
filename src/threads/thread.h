@@ -147,6 +147,8 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+void ready_list_sort();
+
 bool priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux);
 struct donation *donation_create(const struct thread *t);
 

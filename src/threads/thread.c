@@ -586,6 +586,12 @@ allocate_tid (void)
   return tid;
 }
 
+void
+ready_list_sort()
+{
+  list_sort(&ready_list, priority_compare, NULL);
+}
+
 bool 
 priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux)
 {
