@@ -200,6 +200,18 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  if(lock->holder == NULL)
+  {
+    list_push_front(thread_current()->donations, &donation_create(thread_current())->elem);
+  }
+  else
+  {
+    if(require_donation(lock))
+    {
+
+    }
+  }
+
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
 }
@@ -339,4 +351,20 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+}
+
+bool 
+require_donation (struct lock* lock)
+{
+  ASSERT (lock != NULL);
+  ASSERT (lock->holder != NULL);
+
+  return lock->holder->priority < thread_current()->priority;
+}
+
+void 
+priority_donate (struct lock* lock)
+{
+  
+  ASSERT (lock != NULL);
 }
