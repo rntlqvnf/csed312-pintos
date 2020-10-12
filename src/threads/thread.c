@@ -467,9 +467,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->original_priority = priority;
   t->magic = THREAD_MAGIC;
-
-  list_init(&t->donations);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -599,15 +598,6 @@ priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux
   struct thread *thread_b = list_entry(b, struct thread, elem);
   return thread_a->priority > thread_b->priority;
 }
-
-struct donation *
-donation_create(const struct thread *t)
-{
-  struct donation* newDonation = malloc(sizeof(struct donation));
-  newDonation->priority = t->priority;
-  return newDonation;
-}
-
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

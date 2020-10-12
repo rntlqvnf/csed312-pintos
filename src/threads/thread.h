@@ -92,6 +92,10 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    int64_t sleep_deadline_ticks;
+    struct lock *lock_on_wait;
+    struct list donators;
+    int original_priority;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -100,16 +104,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-    int64_t sleep_deadline_ticks;
-    struct lock *lock_on_wait;
-    struct list donations;
   };
-
-struct donation
-   {
-      int priority;
-      struct list_elem elem;
-   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -147,9 +142,8 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-void ready_list_sort();
+void ready_list_sort(void);
 
 bool priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux);
-struct donation *donation_create(const struct thread *t);
 
 #endif /* threads/thread.h */

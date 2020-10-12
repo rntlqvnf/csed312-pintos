@@ -45,6 +45,7 @@ void cond_broadcast (struct condition *, struct lock *);
 bool require_donation (struct lock* );
 void priority_donate (struct lock*);
 void priority_restore (struct lock*);
+void insert_donation(struct lock*);
 /* Optimization barrier.
 
    The compiler will not reorder operations across an
