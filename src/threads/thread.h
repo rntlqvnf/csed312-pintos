@@ -87,7 +87,6 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int original_priority;              /* Original priority */
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
@@ -102,9 +101,15 @@ struct thread
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
     int64_t sleep_deadline_ticks;
-
     struct lock *lock_on_wait;
+    struct list *donations;
   };
+
+struct donation
+   {
+      int priority;
+      struct list_elem elem;
+   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
