@@ -102,7 +102,7 @@ struct thread
     unsigned magic;                     /* Detects stack overflow. */
     int64_t sleep_deadline_ticks;
     struct lock *lock_on_wait;
-    struct list *donations;
+    struct list donations;
   };
 
 struct donation

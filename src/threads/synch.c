@@ -206,12 +206,16 @@ lock_acquire (struct lock *lock)
   {
     thread_current()->lock_on_wait = lock;
     if(require_donation(lock))
+    {
       priority_donate(lock);
+      lock->is_donated = true;
+    }
   }
 
   ready_list_sort();
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  lock->holder->lock_on_wait = NULL;
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -245,6 +249,12 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
   
+  if(lock->is_donated)
+  {
+    priority_restore(lock);
+    lock->is_donated = false;
+  }
+
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
@@ -354,7 +364,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 void
 insert_donation()
 {
-  list_push_front(thread_current()->donations, &donation_create(thread_current())->elem);
+  list_push_front(&thread_current()->donations, &donation_create(thread_current())->elem);
 }
 
 bool 
@@ -373,5 +383,14 @@ priority_donate (struct lock* lock)
 
   lock->holder->priority = thread_current()->priority;
   insert_donation();
-  lock->is_donated = true;
+}
+
+void 
+priority_restore (struct lock* lock)
+{
+  struct donation* previousDonation = list_entry(list_pop_front(&thread_current()->donations), struct donation, elem);
+  if(list_empty(&thread_current()->donations))
+    thread_current()->priority = previousDonation->priority;
+  else
+    thread_current()->priority = list_entry(list_front(&thread_current()->donations), struct donation, elem)->priority;
 }
