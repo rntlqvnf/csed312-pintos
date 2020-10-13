@@ -43,7 +43,7 @@ void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
 void priority_donate (struct lock*);
-void priority_donate_nested (struct thread*, struct thread*);
+void priority_donate_recursive (struct thread*, struct thread*);
 void priority_restore (struct lock*);
 void remove_donators_on_restored_lock (struct lock* lock);
 bool require_donation (struct thread*, struct thread*);

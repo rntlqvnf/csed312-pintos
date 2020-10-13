@@ -360,7 +360,12 @@ priority_donate (struct lock* lock)
 {
   ASSERT (lock != NULL);
 
-  priority_donate_recursive(thread_current(), lock->holder);
+  struct thread* donor_thread = thread_current();
+  struct thread* receiver_thread = lock->holder;
+  if(require_donation(donor_thread, receiver_thread)){
+    list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
+    priority_donate_recursive(donor_thread, receiver_thread);
+  }
   lock->is_donated = true;
 }
 
@@ -368,7 +373,6 @@ void
 priority_restore (struct lock* lock)
 {
   remove_donators_on_restored_lock(lock);
-
   if(list_empty(&thread_current()->donators))
     thread_current()->priority = thread_current()->original_priority;
   else
@@ -377,22 +381,10 @@ priority_restore (struct lock* lock)
   lock->is_donated = false;
 }
 
-void
-remove_donators_on_restored_lock (struct lock* lock)
-{
-  struct list_elem *elem;
-  for (elem = list_begin (&thread_current()->donators); elem != list_end (&thread_current()->donators); elem = list_next (elem))
-  {
-    if(list_entry(elem, struct thread, donate_elem)->lock_on_wait == lock)
-      list_remove(elem);
-  }
-}
-
 void 
 priority_donate_recursive (struct thread* donor_thread, struct thread* receiver_thread)
 {
   if(require_donation(donor_thread, receiver_thread)){
-    list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
     receiver_thread->priority = donor_thread->priority;
     if(receiver_thread->lock_on_wait != NULL){
       priority_donate_recursive(receiver_thread, receiver_thread->lock_on_wait->holder);
@@ -400,10 +392,25 @@ priority_donate_recursive (struct thread* donor_thread, struct thread* receiver_
   }
 }
 
+void
+remove_donators_on_restored_lock (struct lock* lock)
+{
+  struct list_elem *elem = list_begin(&thread_current()->donators);
+  struct list_elem *next = list_end (&thread_current()->donators);
+  while (elem != list_end(&thread_current()->donators))
+  {
+    next = list_next(elem);
+    if(list_entry(elem, struct thread, donate_elem)->lock_on_wait == lock){
+      list_remove(elem);
+    }
+    elem = next;
+  }
+}
+
 bool 
 require_donation (struct thread* donor_thread, struct thread* receiver_thread)
 {
-  return receiver_thread->priority < donor_thread->priority;
+  return donor_thread->priority > receiver_thread->priority;
 }
 
 bool 
