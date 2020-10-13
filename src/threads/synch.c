@@ -201,7 +201,7 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if(!thread_mlfqs && lock->holder != NULL )
+  if(!thread_mlfqs && lock->holder != NULL)
   {
     thread_current()->lock_on_wait = lock;
     priority_donate(lock);
@@ -360,7 +360,7 @@ priority_donate (struct lock* lock)
 {
   ASSERT (lock != NULL);
 
-  priority_donate_nested(thread_current(), lock->holder);
+  priority_donate_recursive(thread_current(), lock->holder);
   lock->is_donated = true;
 }
 
@@ -388,22 +388,17 @@ remove_donators_on_restored_lock (struct lock* lock)
   }
 }
 
-
 void 
-priority_donate_nested (struct thread* donor_thread, struct thread* receiver_thread)
+priority_donate_recursive (struct thread* donor_thread, struct thread* receiver_thread)
 {
-  do
-  {
-    if(require_donation(donor_thread, receiver_thread)){
-      list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
-      receiver_thread->priority = donor_thread->priority;
-
-      donor_thread = receiver_thread;
-      receiver_thread = receiver_thread->lock_on_wait;
+  if(require_donation(donor_thread, receiver_thread)){
+    list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
+    receiver_thread->priority = donor_thread->priority;
+    if(receiver_thread->lock_on_wait != NULL){
+      priority_donate_recursive(receiver_thread, receiver_thread->lock_on_wait->holder);
     }
-  } while (receiver_thread->lock_on_wait != NULL);
+  }
 }
-
 
 bool 
 require_donation (struct thread* donor_thread, struct thread* receiver_thread)
