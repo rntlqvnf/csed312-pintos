@@ -44,7 +44,8 @@ void cond_broadcast (struct condition *, struct lock *);
 
 bool require_donation (struct lock* );
 void priority_donate (struct lock*);
-void priority_restore ();
+void priority_restore (struct lock*);
+void remove_donators_on_restored_lock (struct lock* lock);
 
 bool sema_priority_compare (const struct list_elem* a, const struct list_elem* b, void* aux);
 /* Optimization barrier.
