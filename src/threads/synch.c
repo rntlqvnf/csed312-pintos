@@ -201,11 +201,10 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-  if(lock->holder != NULL)
+  if(!thread_mlfqs && lock->holder != NULL )
   {
     thread_current()->lock_on_wait = lock;
-    if(require_donation(lock))
-      priority_donate(lock);
+    priority_donate(lock);
   }
 
   sema_down (&lock->semaphore);
@@ -356,33 +355,12 @@ cond_broadcast (struct condition *cond, struct lock *lock)
     cond_signal (cond, lock);
 }
 
-bool 
-require_donation (struct lock* lock)
-{
-  ASSERT (lock != NULL);
-  ASSERT (lock->holder != NULL);
-
-  return lock->holder->priority < thread_current()->priority;
-}
-
 void 
 priority_donate (struct lock* lock)
 {
   ASSERT (lock != NULL);
 
-  struct thread* donor_thread = thread_current();
-  struct thread* receiver_thread = lock->holder;
-  do
-  {
-    if(receiver_thread->priority < donor_thread->priority){
-      list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
-      receiver_thread->priority = donor_thread->priority;
-
-      donor_thread = receiver_thread;
-      receiver_thread = receiver_thread->lock_on_wait;
-    }
-  } while (receiver_thread->lock_on_wait != NULL);
-  
+  priority_donate_nested(thread_current(), lock->holder);
   lock->is_donated = true;
 }
 
@@ -399,14 +377,6 @@ priority_restore (struct lock* lock)
   lock->is_donated = false;
 }
 
-bool 
-sema_priority_compare (const struct list_elem* a, const struct list_elem* b, void* aux)
-{ 
-  struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
-  struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
-  return list_entry(list_front(&sema_a->semaphore.waiters), struct thread, elem)->priority > list_entry(list_front(&sema_b->semaphore.waiters),struct thread, elem)->priority;
-}
-
 void
 remove_donators_on_restored_lock (struct lock* lock)
 {
@@ -416,4 +386,35 @@ remove_donators_on_restored_lock (struct lock* lock)
     if(list_entry(elem, struct thread, donate_elem)->lock_on_wait == lock)
       list_remove(elem);
   }
+}
+
+
+void 
+priority_donate_nested (struct thread* donor_thread, struct thread* receiver_thread)
+{
+  do
+  {
+    if(require_donation(donor_thread, receiver_thread)){
+      list_push_front(&receiver_thread->donators, &donor_thread->donate_elem);
+      receiver_thread->priority = donor_thread->priority;
+
+      donor_thread = receiver_thread;
+      receiver_thread = receiver_thread->lock_on_wait;
+    }
+  } while (receiver_thread->lock_on_wait != NULL);
+}
+
+
+bool 
+require_donation (struct thread* donor_thread, struct thread* receiver_thread)
+{
+  return receiver_thread->priority < donor_thread->priority;
+}
+
+bool 
+sema_priority_compare (const struct list_elem* a, const struct list_elem* b, void* aux)
+{ 
+  struct semaphore_elem *sema_a = list_entry(a, struct semaphore_elem, elem);
+  struct semaphore_elem *sema_b = list_entry(b, struct semaphore_elem, elem);
+  return list_entry(list_front(&sema_a->semaphore.waiters), struct thread, elem)->priority > list_entry(list_front(&sema_b->semaphore.waiters),struct thread, elem)->priority;
 }
