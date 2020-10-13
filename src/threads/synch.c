@@ -405,7 +405,6 @@ remove_donators_on_restored_lock (struct lock* lock)
     struct thread* donator = list_entry(elem, struct thread, donate_elem);
     if(donator->lock_on_wait == lock){
       list_remove(elem);
-      donator->lock_on_wait = NULL;
     }
   }
 }
