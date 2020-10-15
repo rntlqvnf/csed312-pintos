@@ -98,6 +98,10 @@ struct thread
     struct list donators;
     int original_priority;
 
+    /*used for advanced scheduler*/
+    int nice;
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -142,6 +146,13 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
+void mlfqs_load_avg (void);
+void mlfqs_increment (void);
+void mlfqs_recalc (void);
+void mlfqs_recalc_priority(void);
 
 bool priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux);
 
