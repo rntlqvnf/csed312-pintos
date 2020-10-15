@@ -348,17 +348,15 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  if(thread_mlfqs==true)
+  if(!thread_mlfqs)
   {
-    return;
-  }
-
-  int prev_priority = thread_current ()->priority;
-  thread_current ()->original_priority = new_priority;
-  if(list_empty(&thread_current()->donators))
-  {
-    thread_current ()->priority = new_priority;
-    thread_yield();
+    int prev_priority = thread_current ()->priority;
+    thread_current ()->original_priority = new_priority;
+    if(list_empty(&thread_current()->donators))
+    {
+      thread_current ()->priority = new_priority;
+      thread_yield();
+    }
   }
 }
 
@@ -373,64 +371,30 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  intr_disable();
   thread_current()->nice=nice;
   mlfqs_priority(thread_current());
-  if(!list_empty(&ready_list))
-  {
-    struct thread* t = list_entry(list_begin(&ready_list), struct thread, allelem);
-    if (thread_current()->priority < t->priority && !intr_context())
-    {
-      thread_yield();
-    }
-    /*else if(thread_current()->priority < t->priority && intr_context())
-    {
-      intr_yield_on_return();
-    }*/
-  }
-  intr_enable();
-
-  /*if (thread_current() != idle_thread)
-  {
-    struct thread* t = list_entry(list_back(&ready_list), struct thread, allelem);
-    if (thread_current()->priority < t->priority)
-    {
-      enum intr_level old_level;
-      old_level = intr_disable ();
-      thread_yield ();
-      intr_set_level (old_level);
-    }
-  }*/
+  thread_yield();
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  intr_disable();
-  int n=thread_current()->nice;
-  intr_enable();
-  return n;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  intr_disable();
-  int l=fp_to_int_round(mul_mixed(load_avg, 100));
-  intr_enable();
-  return l;
+  return fp_to_int_round(mul_mixed(load_avg, 100));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  intr_disable();
-  int r=fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
-  intr_enable();
-  return r;
+  return fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -657,8 +621,6 @@ void mlfqs_recalc(void)
   for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
   {
     struct thread* t=list_entry(e, struct thread, allelem);
-
-    mlfqs_priority(t);
     mlfqs_recent_cpu(t);
   }
   mlfqs_load_avg();
@@ -678,7 +640,7 @@ void mlfqs_recalc_priority(void)
 void mlfqs_priority(struct thread* t)
 {
   if(t!=idle_thread)
-    t->priority = PRI_MAX - int_to_fp(div_mixed(t->recent_cpu, 4)- (t->nice * 2));
+    t->priority = PRI_MAX - int_to_fp(div_mixed(t->recent_cpu, 4) - (t->nice * 2));
 }
 
 void mlfqs_recent_cpu(struct thread* t)
