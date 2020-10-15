@@ -484,13 +484,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->original_priority = priority;
+  t->nice=NICE_DEFAULT;
+  t->recent_cpu=RECENT_CPU_DEFAULT;
 
   list_init(&t->donators);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
-  t->nice=NICE_DEFAULT;
-  t->recent_cpu=RECENT_CPU_DEFAULT;
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
 }
@@ -617,13 +617,14 @@ priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux
 
 void mlfqs_recalc(void)
 {
+  mlfqs_load_avg();
   struct list_elem* e;
   for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
   {
     struct thread* t=list_entry(e, struct thread, allelem);
     mlfqs_recent_cpu(t);
+    mlfqs_priority(t);
   }
-  mlfqs_load_avg();
 }
 
 void mlfqs_recalc_priority(void)
@@ -632,7 +633,6 @@ void mlfqs_recalc_priority(void)
   for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
   {
     struct thread* t=list_entry(e, struct thread, allelem);
-
     mlfqs_priority(t);
   }
 }
@@ -640,7 +640,14 @@ void mlfqs_recalc_priority(void)
 void mlfqs_priority(struct thread* t)
 {
   if(t!=idle_thread)
+  {
     t->priority = PRI_MAX - int_to_fp(div_mixed(t->recent_cpu, 4) - (t->nice * 2));
+  
+    if (t->priority < PRI_MIN)
+      t->priority = PRI_MIN;
+    else if (t->priority > PRI_MAX)
+      t->priority = PRI_MAX;
+  }
 }
 
 void mlfqs_recent_cpu(struct thread* t)
@@ -653,23 +660,11 @@ void mlfqs_recent_cpu(struct thread* t)
 void mlfqs_load_avg(void)
 {
   struct list_elem* e;
-  int ready_thread=1;
-  for(e=list_begin(&ready_list); e != list_end(&ready_list); e=list_next(e))
-  {
-    ready_thread++;
-  }
-  
-  if(thread_current()==idle_thread)
-  {
-    ready_thread--;
-  }
+  size_t ready_thread_cnt = list_size(&ready_list);
+  if (thread_current() != idle_thread)
+    ++ready_thread_cnt;
 
-  load_avg=add_fp(mul_fp(div_fp(int_to_fp(59), int_to_fp(60)), load_avg), mul_fp(div_fp(int_to_fp(1), int_to_fp(60)), int_to_fp(ready_thread)));
-
-  if(load_avg<0)
-  {
-    load_avg=0;
-  }
+  load_avg=add_fp(mul_fp(div_fp(int_to_fp(59), int_to_fp(60)), load_avg), mul_fp(div_fp(int_to_fp(1), int_to_fp(60)), int_to_fp(ready_thread_cnt)));
 }
 
 void mlfqs_increment(void)
