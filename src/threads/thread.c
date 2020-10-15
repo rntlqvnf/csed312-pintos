@@ -651,24 +651,40 @@ priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux
 
 /* mlfqs */
 
+void mlfqs_recalc(void)
+{
+  struct list_elem* e;
+  for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
+  {
+    struct thread* t=list_entry(e, struct thread, allelem);
+
+    mlfqs_priority(t);
+    mlfqs_recent_cpu(t);
+  }
+  mlfqs_load_avg();
+}
+
+void mlfqs_recalc_priority(void)
+{
+  struct list_elem* e;
+  for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
+  {
+    struct thread* t=list_entry(e, struct thread, allelem);
+
+    mlfqs_priority(t);
+  }
+}
+
 void mlfqs_priority(struct thread* t)
 {
-  if(t==idle_thread)
-  {
-    return;
-  }
-  
-  t->priority = sub_fp(sub_fp(int_to_fp(PRI_MAX), div_mixed(t->recent_cpu, 4)), mul_mixed(t->nice, 2));
+  if(t!=idle_thread)
+    t->priority = PRI_MAX - int_to_fp(div_mixed(t->recent_cpu, 4)- (t->nice * 2));
 }
 
 void mlfqs_recent_cpu(struct thread* t)
 {
-  if(t==idle_thread)
-  {
-    return;
-  }
-
-  t->recent_cpu = add_fp(mul_fp(div_fp(mul_mixed(load_avg, 2), add_mixed(mul_mixed(load_avg, 2), 1)), t->recent_cpu), t->nice);
+  if(t!=idle_thread)
+    t->recent_cpu = add_fp(mul_fp(div_fp(mul_mixed(load_avg, 2), add_mixed(mul_mixed(load_avg, 2), 1)), t->recent_cpu), t->nice);
   
 }
 
@@ -696,38 +712,9 @@ void mlfqs_load_avg(void)
 
 void mlfqs_increment(void)
 {
-  if(thread_current()==idle_thread)
-  {
-    return;
-  }
-  thread_current()->recent_cpu=add_mixed(thread_current()->recent_cpu, 1);
-  
+  if(thread_current() != idle_thread)
+    thread_current()->recent_cpu=add_mixed(thread_current()->recent_cpu, 1);
 }
-
-void mlfqs_recalc(void)
-{
-  struct list_elem* e;
-  for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
-  {
-    struct thread* t=list_entry(e, struct thread, allelem);
-
-    mlfqs_priority(t);
-    mlfqs_recent_cpu(t);
-  }
-  mlfqs_load_avg();
-}
-
-void mlfqs_recalc_priority(void)
-{
-  struct list_elem* e;
-  for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
-  {
-    struct thread* t=list_entry(e, struct thread, allelem);
-
-    mlfqs_priority(t);
-  }
-}
-
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
