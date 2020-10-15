@@ -712,30 +712,8 @@ void mlfqs_load_avg(void)
 
 void mlfqs_increment(void)
 {
-<<<<<<< HEAD
   if(thread_current() != idle_thread)
     thread_current()->recent_cpu=add_mixed(thread_current()->recent_cpu, 1);
-=======
-  if(thread_current()==idle_thread)
-  {
-    return;
-  }
-  thread_current()->recent_cpu=add_mixed(thread_current()->recent_cpu, 1);
-  
-}
-
-void mlfqs_recalc(void)
-{
-  struct list_elem* e;
-  for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
-  {
-    struct thread* t=list_entry(e, struct thread, allelem);
-
-    mlfqs_priority(t);
-    mlfqs_recent_cpu(t);
-  }
-  mlfqs_load_avg();
->>>>>>> 4ff8ce18473b20928dec42b353a4a6c7423ac559
 }
 
 /* Offset of `stack' member within `struct thread'.
