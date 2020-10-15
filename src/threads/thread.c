@@ -380,23 +380,31 @@ thread_set_nice (int nice UNUSED)
 int
 thread_get_nice (void) 
 {
-  return thread_current()->nice;
+  intr_disable();
+  int n=thread_current()->nice;
+  intr_enable();
+  return n;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  return fp_to_int_round(mul_mixed(load_avg, 100));
+  intr_disable();
+  int l=fp_to_int_round(mul_mixed(load_avg, 100));
+  intr_enable();
+  return l;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
+  intr_disable();
+  int r=fp_to_int_round(mul_mixed(thread_current()->recent_cpu, 100));
+  intr_enable();
+  return r;
 }
-
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
