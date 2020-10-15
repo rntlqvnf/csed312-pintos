@@ -714,6 +714,7 @@ void mlfqs_recalc(void)
     mlfqs_priority(t);
     mlfqs_recent_cpu(t);
   }
+  mlfqs_load_avg();
 }
 
 void mlfqs_recalc_priority(void)
