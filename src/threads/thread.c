@@ -630,13 +630,13 @@ priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux
 void mlfqs_recalc(void)
 {
   struct list_elem* e;
+  mlfqs_load_avg();
   for(e=list_begin(&all_list); e != list_end(&all_list); e=list_next(e))
   {
     struct thread* t=list_entry(e, struct thread, allelem);
     mlfqs_recent_cpu(t);
     mlfqs_priority(t);
   }
-  mlfqs_load_avg();
 }
 
 void mlfqs_recalc_priority(void)
