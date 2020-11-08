@@ -92,11 +92,17 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-    struct list_elem donate_elem;       
-    int64_t sleep_deadline_ticks;
-    struct lock *lock_on_wait;
-    struct list donators;
+    /* for project 1 */
+    int64_t alarm_time;
+    /*for priority donation*/
+    struct list_elem semaelem;
+    struct list_elem condelem;
     int original_priority;
+    struct list donor_thread_list;
+    struct list_elem donorelem;
+    struct lock* waiting_lock;
+    int nice;
+    int recent_cpu;
 
     /*used for advanced scheduler*/
     int nice;
@@ -114,6 +120,7 @@ struct thread
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
+
 extern bool thread_mlfqs;
 
 void thread_init (void);
@@ -132,7 +139,7 @@ struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
 
-void thread_exit (void) NO_RETURN;
+void thread_exit (void) NO_RETURN; 
 void thread_yield (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
@@ -147,6 +154,15 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+<<<<<<< HEAD
+bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
+bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED); 
+bool cond_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
+void donate_priority(struct thread* donor, struct thread* donee);
+void set_mlfqs_recent_cpu(struct thread *t);
+void set_mlfqs_priority(struct thread *t);
+=======
 void mlfqs_priority (struct thread *t);
 void mlfqs_recent_cpu (struct thread *t);
 void mlfqs_load_avg (void);
@@ -156,4 +172,5 @@ void mlfqs_recalc_priority(void);
 
 bool priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux);
 
+>>>>>>> f77c1a8e23d3eb027b1af32fa7890a4600bc3a18
 #endif /* threads/thread.h */

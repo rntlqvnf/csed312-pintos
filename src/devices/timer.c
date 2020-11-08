@@ -7,6 +7,9 @@
 #include "threads/interrupt.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include <list.h>
+
+
   
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -17,12 +20,15 @@
 #error TIMER_FREQ <= 1000 recommended
 #endif
 
-/* List of sleeping threads */
-static struct list sleep_list;
-
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
 
+/* for project 1 */
+static struct list sleeping_list;
+
+extern struct list* pready_list;
+extern struct list* pall_list;
+extern bool thread_mlfqs;
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
@@ -41,7 +47,8 @@ timer_init (void)
 {
   pit_configure_channel (0, 2, TIMER_FREQ);
   intr_register_ext (0x20, timer_interrupt, "8254 Timer");
-  list_init(&sleep_list);
+  list_init (&sleeping_list);
+
 }
 
 /* Calibrates loops_per_tick, used to implement brief delays. */
@@ -95,14 +102,13 @@ void
 timer_sleep (int64_t ticks) 
 {
   int64_t start = timer_ticks ();
-
-  ASSERT (intr_get_level () == INTR_ON);
-
-  enum intr_level old_level = intr_disable();
-
-  sleep_until(start + ticks);
-
-  intr_set_level(old_level);
+  struct thread *cur = thread_current ();
+  enum intr_level old_level;
+  old_level = intr_disable ();
+  cur->alarm_time = start + ticks;
+  list_insert_ordered(&sleeping_list, &cur->elem, thread_less_func, 0);
+  thread_block();
+  intr_set_level (old_level);
 }
 
 /* Sleeps for approximately MS milliseconds.  Interrupts must be
@@ -176,11 +182,60 @@ timer_print_stats (void)
 }
 
 /* Timer interrupt handler. */
+
+bool thread_less_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED) {
+
+  return list_entry(a,struct thread,elem)->alarm_time <
+
+         list_entry(b,struct thread,elem)->alarm_time;
+
+}
+
 static void
 timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+<<<<<<< HEAD
+  struct list_elem *e;
+
+  if(thread_mlfqs){
+    if(strcmp(thread_current()->name, "idle")!=0){
+      thread_current()->recent_cpu = add_f_i(thread_current()->recent_cpu, 1);
+    }
+    if(timer_ticks () % TIMER_FREQ==0){
+      set_mlfqs_load_avg();
+      for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
+          if(strcmp(list_entry(e, struct thread, allelem)->name, "idle")!=0){
+            set_mlfqs_recent_cpu(list_entry(e, struct thread, allelem));
+          }
+        }
+    }
+    if(timer_ticks () % 4 == 0){
+      for (e = list_begin(pall_list); e != list_end(pall_list); e = list_next (e)){
+        if(strcmp(list_entry(e, struct thread, allelem)->name, "idle")!=0){
+          set_mlfqs_priority(list_entry(e, struct thread, allelem));
+        }
+      }
+      list_sort(pready_list, priority_greater_func, 0);
+    }  
+  }
+  
+
+  while(1){
+    if(!list_empty (&sleeping_list)){
+      struct thread *head = list_entry(list_front(&sleeping_list), struct thread,elem);
+      if(head->alarm_time <= ticks){
+        list_pop_front(&sleeping_list);
+        thread_unblock(head);
+      }else {
+        break;
+      }
+    }else {
+      break; 
+    }
+    
+=======
 
   if(thread_mlfqs)
   {
@@ -200,6 +255,7 @@ void mlfqs_update()
   else if(timer_ticks() % 4 ==0)
   {
     mlfqs_recalc_priority();
+>>>>>>> f77c1a8e23d3eb027b1af32fa7890a4600bc3a18
   }
 }
 
@@ -272,42 +328,4 @@ real_time_delay (int64_t num, int32_t denom)
      the possibility of overflow. */
   ASSERT (denom % 1000 == 0);
   busy_wait (loops_per_tick * num / 1000 * TIMER_FREQ / (denom / 1000)); 
-}
-
-/* Form of list_less_func */ 
-bool
-tick_compare(const struct list_elem* a, const struct list_elem* b, void* aux)
-{
-  struct thread *thread_a = list_entry(a, struct thread, elem);
-  struct thread *thread_b = list_entry(b, struct thread, elem);
-  return thread_a->sleep_deadline_ticks < thread_b->sleep_deadline_ticks;
-}
-
-void
-thread_wakeup()
-{
-  while(!list_empty(&sleep_list))
-  {
-    if(list_entry(list_front(&sleep_list), struct thread, elem)->sleep_deadline_ticks <= ticks)
-    {
-      thread_unblock(list_entry(list_pop_front(&sleep_list), struct thread, elem));
-    }
-    else
-      break;
-  }
-}
-
-void 
-sleep_until(int64_t sleep_deadline_ticks)
-{
-  insert_sleep_list_with_deadline(sleep_deadline_ticks);
-  thread_block();
-}
-
-void
-insert_sleep_list_with_deadline(int64_t sleep_deadline_ticks)
-{
-  struct thread *current_thread = thread_current();
-  current_thread->sleep_deadline_ticks = sleep_deadline_ticks;
-  list_insert_ordered(&sleep_list, &current_thread->elem, tick_compare, NULL);
 }
