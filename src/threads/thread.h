@@ -104,6 +104,10 @@ struct thread
     int nice;
     int recent_cpu;
 
+    /*used for advanced scheduler*/
+    int nice;
+    int recent_cpu;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -150,6 +154,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
+<<<<<<< HEAD
 bool priority_greater_func(struct list_elem *a, struct list_elem *b, void *aux);
 bool sema_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED); 
 bool cond_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUSED);
@@ -157,4 +162,15 @@ bool donor_greater_func(struct list_elem *a, struct list_elem *b, void *aux UNUS
 void donate_priority(struct thread* donor, struct thread* donee);
 void set_mlfqs_recent_cpu(struct thread *t);
 void set_mlfqs_priority(struct thread *t);
+=======
+void mlfqs_priority (struct thread *t);
+void mlfqs_recent_cpu (struct thread *t);
+void mlfqs_load_avg (void);
+void mlfqs_increment (void);
+void mlfqs_recalc (void);
+void mlfqs_recalc_priority(void);
+
+bool priority_compare(const struct list_elem* a, const struct list_elem* b, void* aux);
+
+>>>>>>> f77c1a8e23d3eb027b1af32fa7890a4600bc3a18
 #endif /* threads/thread.h */
