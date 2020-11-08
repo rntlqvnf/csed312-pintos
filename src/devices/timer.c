@@ -38,7 +38,6 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 static void real_time_delay (int64_t num, int32_t denom);
-void mlfqs_update();
 
 /* Sets up the timer to interrupt TIMER_FREQ times per second,
    and registers the corresponding interrupt. */
@@ -196,7 +195,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
-<<<<<<< HEAD
   struct list_elem *e;
 
   if(thread_mlfqs){
@@ -235,27 +233,6 @@ timer_interrupt (struct intr_frame *args UNUSED)
       break; 
     }
     
-=======
-
-  if(thread_mlfqs)
-  {
-    mlfqs_update();
-  }
-  
-  thread_wakeup();
-}
-
-void mlfqs_update()
-{
-  mlfqs_increment();
-  if(timer_ticks() % TIMER_FREQ == 0)
-  {
-    mlfqs_recalc();
-  }
-  else if(timer_ticks() % 4 ==0)
-  {
-    mlfqs_recalc_priority();
->>>>>>> f77c1a8e23d3eb027b1af32fa7890a4600bc3a18
   }
 }
 
