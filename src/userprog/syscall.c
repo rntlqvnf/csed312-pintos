@@ -34,6 +34,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int *esp = f->esp;
 
+  validate_addr(esp);
   int syscall_num = *esp;
   switch (syscall_num)
   {
@@ -64,10 +65,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:
       break;
     case SYS_WRITE:
-      validate_addr(esp+5);
-      validate_addr(esp+6);
-      validate_addr(esp+7);
-      f->eax = write(*(esp+5), *(esp+6), *(esp+7));
+      validate_addr(esp+1);
+      validate_addr(esp+2);
+      validate_addr(esp+3);
+      f->eax = write(*(esp+1), *(esp+2), *(esp+3));
       break;
     case SYS_SEEK:
       break;
@@ -84,16 +85,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 void
 validate_addr(const void* vaddr)
 {
-  if(is_kernel_vaddr(vaddr))
-  {
-    exit(-1);
-    return;
-  }
+  int i;
+  for(i=0; i<4; i++)
+  {  
+    if(is_kernel_vaddr(vaddr+i))
+    {
+      exit(-1);
+      return;
+    }
 
-	if(!pagedir_get_page(thread_current()->pagedir, vaddr)) //page fault
-  {
-    exit(-1);
-    return;
+    if(!pagedir_get_page(thread_current()->pagedir, vaddr+i)) //page fault
+    {
+      exit(-1);
+      return;
+    }
   }
 }
 
@@ -101,6 +106,7 @@ void
 halt()
 {
   shutdown_power_off();
+  NOT_REACHED();
 }
 
 void
@@ -108,6 +114,7 @@ exit(int status)
 {
   printf("%s: exit(%d)\n", thread_name(), status);
   thread_exit();
+  NOT_REACHED();
 }
 
 pid_t 
