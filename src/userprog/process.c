@@ -558,8 +558,6 @@ argument_passing(void** esp, char* file_name)
   *esp -= sizeof(void *);
   memset(*esp, 0, sizeof(void *));
 
-  hex_dump(*esp, *esp, 100, true);
-
   free(copy_file);
   free(argv);
 }
