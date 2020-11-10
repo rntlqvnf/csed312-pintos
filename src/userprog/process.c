@@ -131,6 +131,13 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
+  int fd;
+  int biggest_fd=cur->fd-1;
+  for(fd=biggest_fd; fd>1; fd--)
+  {
+    process_close_file(fd);
+  }
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pagedir;
@@ -641,6 +648,15 @@ struct file* process_get_file(int fd)
 
 void process_close_file(int fd)
 {
+  if(thread_current()->fd_table[fd] == NULL || thread_current()->fd <= fd)
+  {
+    return;
+  }
+
   fclose(thread_current()->fd_table+fd);
   thread_current()->fd_table[fd]=NULL;
+  if(thread_current()->fd==(fd+1))
+  {
+    thread_current()->fd--;
+  }
 }

@@ -7,6 +7,9 @@
 #include "threads/vaddr.h"
 #include "process.h"
 
+#include "../filesys/file.h"
+#include "../filesys/filesys.h"
+
 static void syscall_handler (struct intr_frame *);
 void validate_addr(const void* vaddr);
 bool validate_byte(const void* byte);
@@ -24,10 +27,13 @@ void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
 
+int filesize(int fd);
+
 void
 syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+  lock_init(&filesys_lock);
 }
 
 static void
@@ -114,15 +120,18 @@ syscall_wait(pid_t pid)
 int 
 syscall_write(int fd, const void* buffer, unsigned size)
 {
+  lock_acquire(&filesys_lock);
   if(fd == 1)
   {
     putbuf(buffer, size);
+    lock_release(&filesys_lock);
     return size;
   }
   else
   {
     // TODO: File write
-    return -1;
+    lock_release(&filesys_lock);
+    
   }
 }
 
@@ -146,3 +155,54 @@ bool validate_byte(const void* byte)
 
   return true;
 }
+
+int syscall_open(const char* file)
+{
+  struct file* f=filesys_open(file);
+  if(f==NULL)
+  {
+    return -1;
+  }
+  return process_add_file(f) ;
+}
+
+int filesize(int fd)
+{
+  if(thread_current()->fd_table[fd]==NULL)
+  {
+    return -1;
+  }
+  return file_length(thread_current()->fd_table[fd]);
+}
+
+int syscall_read(int fd, const void* buffer, unsigned size)
+{
+  struct thread* t=thread_current();
+  lock_acquire(&filesys_lock);
+  if(fd==0)
+  {
+    int input;
+    for(input=0; input<size; input++)
+    {
+      if(input_getc()==NULL)
+      {
+        break;
+      }
+    }
+
+    lock_release(&filesys_lock);
+    return input;
+  }
+  else if(fd>2)
+  {
+    
+  }
+  else
+  {
+    return -1;
+  }
+  
+  
+
+}
+
