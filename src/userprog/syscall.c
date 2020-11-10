@@ -174,7 +174,7 @@ int syscall_open(const char* file)
   return process_add_file(f) ;
 }
 
-int filesize(int fd)
+int syscallfilesize(int fd)
 {
   if(thread_current()->fd_table[fd]==NULL)
   {
@@ -252,4 +252,14 @@ void syscall_close(int fd)
     file_close(t->fd_table[fd]);
     t->fd_table[fd]=NULL;
   }
+}
+
+bool syscall_create(const char* file, unsigned initial_size)
+{
+  return filesys_create(file, (off_t) initial_size);
+}
+
+bool syscall_remove(const char* file)
+{
+  return filesys_remove(file);
 }
