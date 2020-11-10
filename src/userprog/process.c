@@ -625,3 +625,21 @@ argument_passing(void** esp, char* file_name)
   free(copy_file);
   free(argv);
 }
+
+int process_add_file(struct file* f)
+{
+  thread_current()->fd_table[thread_current()->fd]=f;
+  thread_current()->fd++;
+  return (thread_current()->fd-1);
+}
+
+struct file* process_get_file(int fd)
+{
+  return thread_current()->fd_table[fd];
+}
+
+void process_close_file(int fd)
+{
+  fclose(thread_current()->fd_table+fd);
+  thread_current()->fd_table[fd]=NULL;
+}

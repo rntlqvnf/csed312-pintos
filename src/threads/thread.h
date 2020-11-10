@@ -118,6 +118,9 @@ struct thread
     bool is_parent_waiting_on_this;
     bool success_child_load;
 
+    int fd; /*currently maximum fd +1*/
+    struct file* fd_table[130];
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
