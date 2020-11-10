@@ -120,6 +120,7 @@ struct thread
 
     int fd; /*currently maximum fd +1*/
     struct file* fd_table[130];
+    struct file* current_file;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

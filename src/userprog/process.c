@@ -19,6 +19,7 @@
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -140,6 +141,7 @@ process_exit (void)
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
+  file_close(cur->current_file);
   pd = cur->pagedir;
   if (pd != NULL) 
     {
@@ -309,6 +311,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  lock_acquire(&filesys_lock);
+
   /* Open executable file. */
   /* parse file name */
   char *copy_file, *save_ptr;
@@ -321,9 +325,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   if (file == NULL) 
     {
+      lock_release(&filesys_lock);
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
+  t->current_file=file;
+  file_deny_write(t->current_file);
+  lock_release(&filesys_lock);
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
