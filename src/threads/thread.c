@@ -616,7 +616,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_push_back (&all_list, &t->allelem);
 
   t->parent = running_thread();
-  sema_init(&(t->child_lock), 0);        
+  t->is_parent_waiting_on_this = false;
+  t->is_waiting_reaping = false;
+  sema_init(&(t->child_lock), 0);    
+  sema_init(&(t->exit_reaping_lock), 0);        
   list_init(&(t->childs));
   list_push_back(&(running_thread()->childs), &(t->child_elem));
 

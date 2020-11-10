@@ -18,9 +18,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
+#include "threads/thread.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+static struct thread* find_child_by_tid (tid_t child_tid);
+static void remove_child_by_tid (tid_t child_tid);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -101,7 +104,23 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  sema_down(&thread_current()->child_lock);
+  struct thread* child = find_child_by_tid(child_tid);
+
+  if(child == NULL || child->is_parent_waiting_on_this)
+  {
+    return -1;
+  }
+
+  if(!child->is_waiting_reaping)
+  {
+    child->is_parent_waiting_on_this = true;
+    sema_down(&thread_current()->child_lock);
+  }
+  
+  int exit_status = child->exit_status;
+  remove_child_by_tid(child_tid);
+  sema_up(&child->exit_reaping_lock);
+  return exit_status;
 }
 
 /* Free the current process's resources. */
@@ -128,7 +147,11 @@ process_exit (void)
       pagedir_destroy (pd);
     }
   
-  sema_up(&cur->parent->child_lock);
+  if(cur->is_parent_waiting_on_this)
+    sema_up(&cur->parent->child_lock);
+  
+  cur->is_waiting_reaping = true;
+  sema_down(&cur->parent->exit_reaping_lock);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -146,6 +169,47 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
+
+static struct thread*
+find_child_by_tid(tid_t child_tid)
+{
+  struct list_elem *elem;
+  struct thread* child = NULL;
+
+  for (elem = list_begin (&thread_current()->childs); elem != list_end (&thread_current()->childs);
+        elem = list_next (elem))
+        {
+          struct thread* _child = list_entry(elem, struct thread, child_elem);
+          if(_child->tid == child_tid)
+          {
+            child = _child;
+            break;
+          }
+        }
+
+  return child;
+}
+
+static void
+remove_child_by_tid(tid_t child_tid)
+{
+  struct list_elem *elem;
+  struct thread* child = NULL;
+
+  for (elem = list_begin (&thread_current()->childs); elem != list_end (&thread_current()->childs);
+        elem = list_next (elem))
+        {
+          struct thread* _child = list_entry(elem, struct thread, child_elem);
+          if(_child->tid == child_tid)
+          {
+            list_remove(elem);
+            break;
+          }
+        }
+
+  return;
+}
+
 
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */

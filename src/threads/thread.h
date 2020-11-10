@@ -109,7 +109,13 @@ struct thread
     struct thread* parent;
     struct list childs;
     struct list_elem child_elem;
+
     struct semaphore child_lock;
+    struct semaphore exit_reaping_lock;
+
+    int exit_status;
+    bool is_waiting_reaping;
+    bool is_parent_waiting_on_this;
     bool success_child_load;
 
 #ifdef USERPROG

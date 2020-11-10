@@ -113,6 +113,10 @@ void
 exit(int status)
 {
   printf("%s: exit(%d)\n", thread_name(), status);
+  thread_current()->exit_status = status;
+
+  //TODO: What if parent die before child??
+
   thread_exit();
   NOT_REACHED();
 }
