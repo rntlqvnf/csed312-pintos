@@ -209,6 +209,7 @@ thread_create (const char *name, int priority,
   sf->ebp = 0;
 
   t->fd=2;
+  memset(t->fd_table, NULL, sizeof(t->fd_table));
 
   /* Add to run queue. */
   thread_unblock (t);
