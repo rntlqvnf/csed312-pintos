@@ -120,6 +120,7 @@ syscall_wait(pid_t pid)
 int 
 syscall_write(int fd, const void* buffer, unsigned size)
 {
+  struct thread* t=thread_current();
   lock_acquire(&filesys_lock);
   if(fd == 1)
   {
@@ -127,12 +128,19 @@ syscall_write(int fd, const void* buffer, unsigned size)
     lock_release(&filesys_lock);
     return size;
   }
-  else
+  else if(fd>1)
   {
     // TODO: File write
+    int output=(int) file_write(t->fd_table[fd], buffer, (off_t) size);
     lock_release(&filesys_lock);
-    
+    return output;
   }
+  else
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+  
 }
 
 void
@@ -172,16 +180,16 @@ int filesize(int fd)
   {
     return -1;
   }
-  return file_length(thread_current()->fd_table[fd]);
+  return (int) file_length(thread_current()->fd_table[fd]);
 }
 
 int syscall_read(int fd, const void* buffer, unsigned size)
 {
   struct thread* t=thread_current();
   lock_acquire(&filesys_lock);
+  int input;
   if(fd==0)
   {
-    int input;
     for(input=0; input<size; input++)
     {
       if(input_getc()==NULL)
@@ -190,19 +198,58 @@ int syscall_read(int fd, const void* buffer, unsigned size)
       }
     }
 
-    lock_release(&filesys_lock);
-    return input;
   }
-  else if(fd>2)
+  else if(fd>1)
   {
-    
+    input=(int) file_read(t->fd_table[fd], buffer, (off_t) size);
   }
   else
   {
+    lock_release(&filesys_lock);
     return -1;
   }
   
-  
+  lock_release(&filesys_lock);
+  return input;
 
 }
 
+void syscall_seek(int fd, unsigned position)
+{
+  struct thread* t=thread_current();
+  if(t->fd_table[fd]==NULL)
+  {
+    return;
+  }
+  else
+  {
+    file_seek(t->fd_table[fd], (off_t) position);
+  }
+}
+
+unsigned syscall_tell(int fd)
+{
+  struct thread* t=thread_current();
+  if(t->fd_table[fd]==NULL)
+  {
+    return;
+  }
+  else
+  {
+    return (unsigned) file_tell(t->fd_table[fd]);
+  }
+}
+
+void syscall_close(int fd)
+{
+  struct thread* t=thread_current();
+  if(t->fd_table[fd]==NULL)
+  {
+    return;
+  }
+  else
+  {
+    file_close(t->fd_table[fd]);
+    t->fd_table[fd]=NULL;
+  }
+}
