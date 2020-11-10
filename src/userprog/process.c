@@ -662,7 +662,8 @@ void process_close_file(int fd)
     return;
   }
 
-  fclose(thread_current()->fd_table+fd);
+  fclose(thread_current()->fd_table[fd]);
+
   thread_current()->fd_table[fd]=NULL;
   if(thread_current()->fd==(fd+1))
   {
