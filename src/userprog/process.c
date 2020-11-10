@@ -50,8 +50,8 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
+  /* Wait until load complete */
   sema_down(&thread_current()->child_lock);
-
   if(!thread_current()->success_child_load)
     return -1;
 
@@ -77,6 +77,7 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
 
+  /* Pass load success to parent */
   thread_current()->parent->success_child_load = success;
   sema_up(&thread_current()->parent->child_lock);
   if (!success)

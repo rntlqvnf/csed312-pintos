@@ -9,19 +9,20 @@
 
 static void syscall_handler (struct intr_frame *);
 void validate_addr(const void* vaddr);
+bool validate_byte(const void* byte);
 
-void halt();
-void exit(int status);
-pid_t exec(const char* cmd_line);
-int wait(pid_t pid);
-bool create(const char* file, unsigned initial_size);
-bool remove(const char* file);
-int open(const char* file);
-int filesize(int fd);
-int write(int fd, const void* buffer, unsigned size);
-void seek(int fd, unsigned position);
-unsigned tell(int fd);
-void close(int fd);
+void syscall_halt();
+void syscall_exit(int status);
+pid_t syscall_exec(const char* cmd_line);
+int syscall_wait(pid_t pid);
+bool syscall_create(const char* file, unsigned initial_size);
+bool syscall_remove(const char* file);
+int syscall_open(const char* file);
+int syscall_filesize(int fd);
+int syscall_write(int fd, const void* buffer, unsigned size);
+void syscall_seek(int fd, unsigned position);
+unsigned syscall_tell(int fd);
+void syscall_close(int fd);
 
 void
 syscall_init (void) 
@@ -39,20 +40,20 @@ syscall_handler (struct intr_frame *f UNUSED)
   switch (syscall_num)
   {
     case SYS_HALT:
-      halt();
+      syscall_halt();
       break;
     case SYS_EXIT:
       validate_addr(esp+1);
-      exit(*(esp+1));
+      syscall_exit(*(esp+1));
       break;
     case SYS_EXEC:
       validate_addr(esp+1);
       validate_addr(*(esp+1));
-      f->eax = exec(*(esp+1));
+      f->eax = syscall_exec(*(esp+1));
       break;
     case SYS_WAIT:
       validate_addr(esp+1);
-      f->eax = wait(*(esp+1));
+      f->eax = syscall_wait(*(esp+1));
       break;
     case SYS_CREATE:
       break;
@@ -68,7 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       validate_addr(esp+1);
       validate_addr(esp+2);
       validate_addr(esp+3);
-      f->eax = write(*(esp+1), *(esp+2), *(esp+3));
+      f->eax = syscall_write(*(esp+1), *(esp+2), *(esp+3));
       break;
     case SYS_SEEK:
       break;
@@ -83,58 +84,35 @@ syscall_handler (struct intr_frame *f UNUSED)
 }
 
 void
-validate_addr(const void* vaddr)
-{
-  int i;
-  for(i=0; i<4; i++)
-  {  
-    if(is_kernel_vaddr(vaddr+i))
-    {
-      exit(-1);
-      return;
-    }
-
-    if(!pagedir_get_page(thread_current()->pagedir, vaddr+i)) //page fault
-    {
-      exit(-1);
-      return;
-    }
-  }
-}
-
-void
-halt()
+syscall_halt()
 {
   shutdown_power_off();
   NOT_REACHED();
 }
 
 void
-exit(int status)
+syscall_exit(int status)
 {
   printf("%s: exit(%d)\n", thread_name(), status);
   thread_current()->exit_status = status;
-
-  //TODO: What if parent die before child??
-
   thread_exit();
   NOT_REACHED();
 }
 
 pid_t 
-exec(const char* cmd_line)
+syscall_exec(const char* cmd_line)
 {
   return process_execute(cmd_line);
 }
 
 int 
-wait(pid_t pid)
+syscall_wait(pid_t pid)
 {
   return process_wait(pid);
 }
 
 int 
-write(int fd, const void* buffer, unsigned size)
+syscall_write(int fd, const void* buffer, unsigned size)
 {
   if(fd == 1)
   {
@@ -146,4 +124,25 @@ write(int fd, const void* buffer, unsigned size)
     // TODO: File write
     return -1;
   }
+}
+
+void
+validate_addr(const void* vaddr)
+{
+  int i;
+  for(i=0; i<4; i++)
+  { 
+    if(validate_byte(vaddr+i) == false)
+      exit(-1);
+  }
+}
+
+bool validate_byte(const void* byte)
+{
+  if(is_kernel_vaddr(byte))
+    return false;
+  if(!pagedir_get_page(thread_current()->pagedir, byte)) //page fault
+    return false;
+
+  return true;
 }
