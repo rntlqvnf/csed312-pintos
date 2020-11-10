@@ -136,7 +136,7 @@ process_exit (void)
   int biggest_fd=cur->fd-1;
   for(fd=biggest_fd; fd>1; fd--)
   {
-    process_close_file(fd);
+    syscall_close(fd);
   }
 
   /* Destroy the current process's page directory and switch back
@@ -641,32 +641,4 @@ argument_passing(void** esp, char* file_name)
 
   free(copy_file);
   free(argv);
-}
-
-int process_add_file(struct file* f)
-{
-  thread_current()->fd_table[thread_current()->fd]=f;
-  thread_current()->fd++;
-  return (thread_current()->fd-1);
-}
-
-struct file* process_get_file(int fd)
-{
-  return thread_current()->fd_table[fd];
-}
-
-void process_close_file(int fd)
-{
-  if(thread_current()->fd_table[fd] == NULL || thread_current()->fd <= fd)
-  {
-    return;
-  }
-
-  fclose(thread_current()->fd_table[fd]);
-
-  thread_current()->fd_table[fd]=NULL;
-  if(thread_current()->fd==(fd+1))
-  {
-    thread_current()->fd--;
-  }
 }

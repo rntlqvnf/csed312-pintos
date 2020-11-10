@@ -164,15 +164,18 @@ bool validate_byte(const void* byte)
 
 int syscall_open(const char* file)
 {
+  struct thread* t=thread_current();
   struct file* f=filesys_open(file);
   if(f==NULL)
   {
     return -1;
   }
-  return process_add_file(f) ;
+  t->fd_table[t->fd]=f;
+  t->fd++;
+  return (t->fd-1);
 }
 
-int syscallfilesize(int fd)
+int syscall_filesize(int fd)
 {
   if(thread_current()->fd_table[fd]==NULL)
   {
@@ -241,7 +244,7 @@ unsigned syscall_tell(int fd)
 void syscall_close(int fd)
 {
   struct thread* t=thread_current();
-  if(t->fd_table[fd]==NULL)
+  if(t->fd_table[fd]==NULL || thread_current()->fd <= fd)
   {
     return;
   }
@@ -249,6 +252,10 @@ void syscall_close(int fd)
   {
     file_close(t->fd_table[fd]);
     t->fd_table[fd]=NULL;
+    if(thread_current()->fd==(fd+1))
+    {
+      thread_current()->fd--;
+    }
   }
 }
 
