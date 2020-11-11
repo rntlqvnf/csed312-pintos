@@ -118,7 +118,7 @@ struct thread
     bool is_parent_waiting_on_this;
     bool success_child_load;
     
-    struct file* fd_table[128];
+    struct file* fd_table[130];
     struct file* self_file;
 
 #ifdef USERPROG
