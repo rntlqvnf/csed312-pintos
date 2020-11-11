@@ -133,7 +133,7 @@ void
 close_files()
 {
   int i;
-  for(i = 3; i<128; i++)
+  for(i = 2; i<130; i++)
     syscall_close(i);
     
   //TODO :Why this fails..?
@@ -192,7 +192,7 @@ int syscall_read(int fd, const void* buffer, unsigned size)
     }
     result = i;
   }
-  else if(fd > 2)
+  else if(fd > 1)
   {
     if(thread_current()->fd_table[fd] == NULL)
       result = -1;
@@ -214,7 +214,7 @@ int syscall_open(const char* file)
   if(opened_file == NULL)
     return -1;
   
-  for(i = 3; i<128; i++)
+  for(i = 2; i<130; i++)
   {
     if(thread_current()->fd_table[i] == NULL)
     {
