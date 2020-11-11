@@ -624,8 +624,10 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init(&(t->childs));
   list_push_back(&(running_thread()->childs), &(t->child_elem));\
 
-  /* file descriptor */
-  memset(t->fd_table, NULL, sizeof(t->fd_table));
+  /* file descriptor */ 
+  for (int i = 0; i < 128; i++) {                                                         
+      t->fd_table[i] = NULL;                                                                
+  }   
 
   intr_set_level (old_level);
 }

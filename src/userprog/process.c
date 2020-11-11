@@ -133,7 +133,6 @@ process_exit (void)
   uint32_t *pd;
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  file_close(cur->current_file);
   pd = cur->pagedir;
   if (pd != NULL) 
     {

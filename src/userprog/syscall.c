@@ -129,6 +129,17 @@ syscall_exit(int status)
   NOT_REACHED();
 }
 
+void
+close_files()
+{
+  int i;
+  for(i = 3; i<128; i++)
+    syscall_close(i);
+    
+  //TODO :Why this fails..?
+  // file_close(thread_current()->self_file);
+}
+
 pid_t 
 syscall_exec(const char* cmd_line)
 {
@@ -279,15 +290,4 @@ validate_byte(const void* byte)
     return false;
 
   return true;
-}
-
-void
-close_files()
-{
-  int i;
-  for(i = 3; i<128; i++)
-  {
-    if(thread_current()->fd_table[i] != NULL)
-      syscall_close(i);
-  }
 }
