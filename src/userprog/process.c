@@ -131,14 +131,6 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-
-  int fd;
-  int biggest_fd=cur->fd-1;
-  for(fd=biggest_fd; fd>1; fd--)
-  {
-    syscall_close(fd);
-  }
-
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   file_close(cur->current_file);

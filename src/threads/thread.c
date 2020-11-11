@@ -207,10 +207,6 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
-
-  t->fd=2;
-  memset(t->fd_table, NULL, sizeof(t->fd_table));
-
   /* Add to run queue. */
   thread_unblock (t);
   if(!list_empty(&ready_list)){
@@ -619,13 +615,17 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
 
+  /* argument passing & hierarchy */
   t->parent = running_thread();
   t->is_parent_waiting_on_this = false;
   t->is_waiting_reaping = false;
   sema_init(&(t->child_lock), 0);    
   sema_init(&(t->exit_reaping_lock), 0);        
   list_init(&(t->childs));
-  list_push_back(&(running_thread()->childs), &(t->child_elem));
+  list_push_back(&(running_thread()->childs), &(t->child_elem));\
+
+  /* file descriptor */
+  memset(t->fd_table, NULL, sizeof(t->fd_table));
 
   intr_set_level (old_level);
 }

@@ -13,6 +13,7 @@
 static void syscall_handler (struct intr_frame *);
 void validate_addr(const void* vaddr);
 bool validate_byte(const void* byte);
+void close_files();
 
 void syscall_halt();
 void syscall_exit(int status);
@@ -61,15 +62,18 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     case SYS_CREATE:
       validate_addr(esp+1);
+      validate_addr(*(esp+1));
       validate_addr(esp+2);
       f->eax = syscall_create(*(esp+1), *(esp+2));
       break;
     case SYS_REMOVE:
       validate_addr(esp+1);
+      validate_addr(*(esp+1));
       f->eax = syscall_remove(*(esp+1));
       break;
     case SYS_OPEN:
       validate_addr(esp+1);
+      validate_addr(*(esp+1));
       f->eax = syscall_open(*(esp+1));
       break;
     case SYS_FILESIZE:
@@ -85,6 +89,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_WRITE:
       validate_addr(esp+1);
       validate_addr(esp+2);
+      validate_addr(*(esp+2));
       validate_addr(esp+3);
       f->eax = syscall_write(*(esp+1), *(esp+2), *(esp+3));
       break;
@@ -119,6 +124,7 @@ syscall_exit(int status)
 {
   printf("%s: exit(%d)\n", thread_name(), status);
   thread_current()->exit_status = status;
+  close_files();
   thread_exit();
   NOT_REACHED();
 }
@@ -146,9 +152,8 @@ syscall_write(int fd, const void* buffer, unsigned size)
     lock_release(&filesys_lock);
     return size;
   }
-  else if(fd>1)
+  else if(fd > 1)
   {
-    // TODO: File write
     int output=(int) file_write(t->fd_table[fd], buffer, (off_t) size);
     lock_release(&filesys_lock);
     return output;
@@ -157,9 +162,99 @@ syscall_write(int fd, const void* buffer, unsigned size)
   {
     lock_release(&filesys_lock);
     return -1;
+  } 
+}
+
+int syscall_read(int fd, const void* buffer, unsigned size)
+{
+  struct thread* t=thread_current();
+  lock_acquire(&filesys_lock);
+  int input;
+  if(fd == 0)
+  {
+    for(input=0; input<size; input++)
+    {
+      if(input_getc() == NULL)
+        break;
+    }
+  }
+  else if(fd > 2)
+  {
+    input = (int) file_read(t->fd_table[fd], buffer, (off_t) size);
+  }
+  else
+  {
+    lock_release(&filesys_lock);
+    return -1;
   }
   
+  lock_release(&filesys_lock);
+  return input;
 }
+
+int syscall_open(const char* file)
+{
+  struct file* opened_file=filesys_open(file);
+  int i;
+
+  if(opened_file == NULL)
+    return -1;
+  
+  for(i = 3; i<128; i++)
+  {
+    if(thread_current()->fd_table[i] == NULL)
+    {
+      thread_current()->fd_table[i] = opened_file;
+      return i;
+    }
+  }
+}
+
+int syscall_filesize(int fd)
+{
+  if(thread_current()->fd_table[fd] == NULL)
+    return -1;
+
+  return (int) file_length(thread_current()->fd_table[fd]);
+}
+
+void syscall_seek(int fd, unsigned position)
+{
+  if(thread_current()->fd_table[fd] == NULL)
+    return;
+  else
+    file_seek(thread_current()->fd_table[fd], (off_t) position);
+}
+
+unsigned syscall_tell(int fd)
+{
+  if(thread_current()->fd_table[fd] == NULL)
+    return -1;
+  else
+    return (unsigned) file_tell(thread_current()->fd_table[fd]);
+}
+
+void syscall_close(int fd)
+{
+  if(thread_current()->fd_table[fd] == NULL)
+    return;
+  else
+  {
+    file_close(thread_current()->fd_table[fd]);
+    thread_current()->fd_table[fd] = NULL;
+  }
+}
+
+bool syscall_create(const char* file, unsigned initial_size)
+{
+  return filesys_create(file, (off_t) initial_size);
+}
+
+bool syscall_remove(const char* file)
+{
+  return filesys_remove(file);
+}
+
 
 void
 validate_addr(const void* vaddr)
@@ -172,7 +267,8 @@ validate_addr(const void* vaddr)
   }
 }
 
-bool validate_byte(const void* byte)
+bool 
+validate_byte(const void* byte)
 {
   if(is_kernel_vaddr(byte))
     return false;
@@ -182,109 +278,13 @@ bool validate_byte(const void* byte)
   return true;
 }
 
-int syscall_open(const char* file)
+void
+close_files()
 {
-  struct thread* t=thread_current();
-  struct file* f=filesys_open(file);
-  if(f==NULL)
+  int i;
+  for(i = 3; i<128; i++)
   {
-    return -1;
+    if(thread_current()->fd_table[i] != NULL)
+      syscall_close(i);
   }
-  t->fd_table[t->fd]=f;
-  t->fd++;
-  return (t->fd-1);
-}
-
-int syscall_filesize(int fd)
-{
-  if(thread_current()->fd_table[fd]==NULL)
-  {
-    return -1;
-  }
-  return (int) file_length(thread_current()->fd_table[fd]);
-}
-
-int syscall_read(int fd, const void* buffer, unsigned size)
-{
-  struct thread* t=thread_current();
-  lock_acquire(&filesys_lock);
-  int input;
-  if(fd==0)
-  {
-    for(input=0; input<size; input++)
-    {
-      if(input_getc()==NULL)
-      {
-        break;
-      }
-    }
-
-  }
-  else if(fd>1)
-  {
-    input=(int) file_read(t->fd_table[fd], buffer, (off_t) size);
-  }
-  else
-  {
-    lock_release(&filesys_lock);
-    return -1;
-  }
-  
-  lock_release(&filesys_lock);
-  return input;
-
-}
-
-void syscall_seek(int fd, unsigned position)
-{
-  struct thread* t=thread_current();
-  if(t->fd_table[fd]==NULL)
-  {
-    return;
-  }
-  else
-  {
-    file_seek(t->fd_table[fd], (off_t) position);
-  }
-}
-
-unsigned syscall_tell(int fd)
-{
-  struct thread* t=thread_current();
-  if(t->fd_table[fd]==NULL)
-  {
-    return;
-  }
-  else
-  {
-    return (unsigned) file_tell(t->fd_table[fd]);
-  }
-}
-
-void syscall_close(int fd)
-{
-  struct thread* t=thread_current();
-  if(t->fd_table[fd]==NULL || thread_current()->fd <= fd)
-  {
-    return;
-  }
-  else
-  {
-    file_close(t->fd_table[fd]);
-    t->fd_table[fd]=NULL;
-    if(thread_current()->fd==(fd+1))
-    {
-      thread_current()->fd--;
-    }
-  }
-}
-
-bool syscall_create(const char* file, unsigned initial_size)
-{
-  return filesys_create(file, (off_t) initial_size);
-}
-
-bool syscall_remove(const char* file)
-{
-  return filesys_remove(file);
 }
