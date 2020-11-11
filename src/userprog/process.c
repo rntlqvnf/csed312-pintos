@@ -36,6 +36,8 @@ process_execute (const char *file_name)
   char *fn_copy;
   char *parsed_file_name;
   tid_t tid;
+  struct list_elem* e;
+  struct thread* t;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -49,6 +51,11 @@ process_execute (const char *file_name)
   strlcpy (parsed_file_name, file_name, strlen(file_name)+1);
   parsed_file_name = strtok_r(parsed_file_name, " ", &save_ptr);
 
+  if(filesys_open(file_name)==NULL)
+  {
+    return -1;
+  }
+
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
@@ -56,6 +63,14 @@ process_execute (const char *file_name)
 
   /* Wait until load complete */
   sema_down(&thread_current()->child_lock);
+
+  for (e = list_begin(&thread_current()->childs); e != list_end(&thread_current()->childs); e = list_next(e)) {
+    t = list_entry(e, struct thread, child_elem);
+      if (t->exit_status == -1) {
+        return process_wait(tid);
+      }
+  }
+  
   if(!thread_current()->success_child_load)
     return -1;
 
@@ -85,6 +100,7 @@ start_process (void *file_name_)
   thread_current()->parent->success_child_load = success;
   sema_up(&thread_current()->parent->child_lock);
   if (!success)
+    syscall_exit(-1);
     thread_exit ();
 
   /* Start the user process by simulating a return from an
