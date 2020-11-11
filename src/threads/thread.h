@@ -119,7 +119,7 @@ struct thread
     bool success_child_load;
     
     struct file* fd_table[128];
-    struct file* current_file;
+    struct file* self_file;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
