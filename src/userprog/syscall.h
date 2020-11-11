@@ -4,6 +4,7 @@
 #include "../threads/synch.h"
 
 void syscall_init (void);
+void syscall_exit(int status);
 
 struct lock filesys_lock;
 

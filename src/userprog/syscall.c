@@ -16,7 +16,6 @@ bool validate_byte(const void* byte);
 void close_files();
 
 void syscall_halt();
-void syscall_exit(int status);
 pid_t syscall_exec(const char* cmd_line);
 int syscall_wait(pid_t pid);
 bool syscall_create(const char* file, unsigned initial_size);
@@ -24,6 +23,7 @@ bool syscall_remove(const char* file);
 int syscall_open(const char* file);
 int syscall_filesize(int fd);
 int syscall_write(int fd, const void* buffer, unsigned size);
+int syscall_read(int fd, const void* buffer, unsigned size);
 void syscall_seek(int fd, unsigned position);
 unsigned syscall_tell(int fd);
 void syscall_close(int fd);
@@ -83,6 +83,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_READ:
       validate_addr(esp+1);
       validate_addr(esp+2);
+      validate_addr(*(esp+2));
       validate_addr(esp+3);
       f->eax = syscall_read(*(esp+1), *(esp+2), *(esp+3));
       break;
@@ -178,17 +179,22 @@ syscall_write(int fd, const void* buffer, unsigned size)
   return result;
 }
 
-int syscall_read(int fd, const void* buffer, unsigned size)
+int 
+syscall_read(int fd, const void* buffer, unsigned size)
 {
   lock_acquire(&filesys_lock);
   int result;
+	uint8_t* bf = (uint8_t *) buffer;
   if(fd == 0)
   {
     int i = 0;
+    uint8_t b;
     for(i=0; i<size; i++)
     {
-      if(input_getc() == NULL)
+      if(b = input_getc() == NULL)
         break;
+      else
+        *bf++ = b;
     }
     result = i;
   }
