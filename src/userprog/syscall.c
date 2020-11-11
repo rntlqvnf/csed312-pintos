@@ -60,14 +60,27 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = syscall_wait(*(esp+1));
       break;
     case SYS_CREATE:
+      validate_addr(esp+1);
+      validate_addr(esp+2);
+      f->eax = syscall_create(*(esp+1), *(esp+2));
       break;
     case SYS_REMOVE:
+      validate_addr(esp+1);
+      f->eax = syscall_remove(*(esp+1));
       break;
     case SYS_OPEN:
+      validate_addr(esp+1);
+      f->eax = syscall_open(*(esp+1));
       break;
     case SYS_FILESIZE:
+      validate_addr(esp+1);
+      f->eax = syscall_filesize(*(esp+1));
       break;
     case SYS_READ:
+      validate_addr(esp+1);
+      validate_addr(esp+2);
+      validate_addr(esp+3);
+      f->eax = syscall_read(*(esp+1), *(esp+2), *(esp+3));
       break;
     case SYS_WRITE:
       validate_addr(esp+1);
@@ -76,10 +89,17 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = syscall_write(*(esp+1), *(esp+2), *(esp+3));
       break;
     case SYS_SEEK:
+      validate_addr(esp+1);
+      validate_addr(esp+2);
+      syscall_seek(*(esp+1), *(esp+2));
       break;
     case SYS_TELL:
+      validate_addr(esp+1);
+      f->eax = syscall_tell(*(esp+1));
       break;
     case SYS_CLOSE:
+      validate_addr(esp+1);
+      syscall_close(*(esp+1));
       break;
     default:
       printf("Not implemented \n");
@@ -148,7 +168,7 @@ validate_addr(const void* vaddr)
   for(i=0; i<4; i++)
   { 
     if(validate_byte(vaddr+i) == false)
-      exit(-1);
+      syscall_exit(-1);
   }
 }
 
