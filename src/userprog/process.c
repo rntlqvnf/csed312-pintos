@@ -35,9 +35,8 @@ process_execute (const char *file_name)
 {
   char *fn_copy;
   char *parsed_file_name;
-  tid_t tid;
   struct list_elem* e;
-  struct thread* t;
+  tid_t tid;
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -54,21 +53,18 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_file_name, PRI_DEFAULT, start_process, fn_copy);
   free(parsed_file_name);
+  
+  /* Wait until load complete */
+  sema_down(&thread_current()->load_lock);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-
-  /* Wait until load complete */
-  sema_down(&thread_current()->child_lock);
-
+    
   for (e = list_begin(&thread_current()->childs); e != list_end(&thread_current()->childs); e = list_next(e)) {
-    t = list_entry(e, struct thread, child_elem);
-      if (t->exit_status == -1) {
-        return process_wait(tid);
-      }
+    struct thread* t = list_entry(e, struct thread, child_elem);
+    if (t->is_load_failed_thread == true) {
+      return process_wait(tid);
+    }
   }
-  
-  if(!thread_current()->success_child_load)
-    return -1;
 
   return tid;
 }
@@ -88,15 +84,19 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-
+  
   /* If load failed, quit. */
   palloc_free_page (file_name);
-
   /* Pass load success to parent */
   thread_current()->parent->success_child_load = success;
-  sema_up(&thread_current()->parent->child_lock);
+  sema_up(&thread_current()->parent->load_lock);
+
   if (!success)
-    syscall_exit(-1); // thread_exit()?
+  {
+    thread_current()->is_load_failed_thread = true;
+    syscall_exit(-1);
+    NOT_REACHED();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -130,7 +130,7 @@ process_wait (tid_t child_tid UNUSED)
   if(!child->is_waiting_reaping)
   {
     child->is_parent_waiting_on_this = true;
-    sema_down(&thread_current()->child_lock);
+    sema_down(&thread_current()->wait_lock);
   }
   
   int exit_status = child->exit_status;
@@ -163,10 +163,12 @@ process_exit (void)
     }
   
   if(cur->is_parent_waiting_on_this)
-    sema_up(&cur->parent->child_lock);
+    sema_up(&cur->parent->wait_lock);
   
   cur->is_waiting_reaping = true;
   sema_down(&cur->parent->exit_reaping_lock);
+
+
 }
 
 /* Sets up the CPU for running user code in the current
@@ -221,8 +223,6 @@ remove_child_by_tid(tid_t child_tid)
             break;
           }
         }
-
-  return;
 }
 
 
@@ -334,9 +334,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-    
-  t->self_file=file;
-  file_deny_write(t->self_file);
+
   lock_release(&filesys_lock);
 
   /* Read and verify executable header. */
@@ -421,8 +419,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  if(!success)
-    file_close (file);
+  file_close (file);
   return success;
 }
 

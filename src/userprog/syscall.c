@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include <user/syscall.h>
 #include "threads/interrupt.h"
@@ -135,8 +136,9 @@ close_files()
 {
   int i;
   for(i = 2; i<130; i++)
+  {
     syscall_close(i);
-  file_close(thread_current()->self_file);
+  }
 }
 
 pid_t 
@@ -218,6 +220,9 @@ int syscall_open(const char* file)
   if(opened_file == NULL)
     return -1;
   
+  if(strcmp(thread_name(), file) == 0)
+    file_deny_write(opened_file);
+
   for(i = 2; i<130; i++)
   {
     if(thread_current()->fd_table[i] == NULL)
@@ -226,6 +231,7 @@ int syscall_open(const char* file)
       return i;
     }
   }
+  return -1;
 }
 
 int syscall_filesize(int fd)
@@ -254,13 +260,8 @@ unsigned syscall_tell(int fd)
 
 void syscall_close(int fd)
 {
-  if(thread_current()->fd_table[fd] == NULL)
-    return;
-  else
-  {
-    file_close(thread_current()->fd_table[fd]);
-    thread_current()->fd_table[fd] = NULL;
-  }
+  file_close(thread_current()->fd_table[fd]);
+  thread_current()->fd_table[fd] = NULL;
 }
 
 bool syscall_create(const char* file, unsigned initial_size)
@@ -272,7 +273,6 @@ bool syscall_remove(const char* file)
 {
   return filesys_remove(file);
 }
-
 
 void
 validate_addr(const void* vaddr)
