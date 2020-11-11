@@ -51,13 +51,9 @@ process_execute (const char *file_name)
   strlcpy (parsed_file_name, file_name, strlen(file_name)+1);
   parsed_file_name = strtok_r(parsed_file_name, " ", &save_ptr);
 
-  if(filesys_open(file_name)==NULL)
-  {
-    return -1;
-  }
-
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_file_name, PRI_DEFAULT, start_process, fn_copy);
+  free(parsed_file_name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
@@ -100,8 +96,7 @@ start_process (void *file_name_)
   thread_current()->parent->success_child_load = success;
   sema_up(&thread_current()->parent->child_lock);
   if (!success)
-    syscall_exit(-1);
-    thread_exit ();
+    syscall_exit(-1); // thread_exit()?
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
