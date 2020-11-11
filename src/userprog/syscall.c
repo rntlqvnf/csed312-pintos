@@ -136,9 +136,7 @@ close_files()
   int i;
   for(i = 2; i<130; i++)
     syscall_close(i);
-    
-  //TODO :Why this fails..?
-  // file_close(thread_current()->self_file);
+  file_close(thread_current()->self_file);
 }
 
 pid_t 

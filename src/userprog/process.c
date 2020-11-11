@@ -325,6 +325,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+    
+  t->self_file=file;
+  file_deny_write(t->self_file);
   lock_release(&filesys_lock);
 
   /* Read and verify executable header. */
@@ -405,14 +408,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-
-  t->self_file=file;
-  file_deny_write(t->self_file);
   success = true;
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  if(!success)
+    file_close (file);
   return success;
 }
 
