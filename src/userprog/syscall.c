@@ -144,57 +144,60 @@ syscall_wait(pid_t pid)
 int 
 syscall_write(int fd, const void* buffer, unsigned size)
 {
-  struct thread* t=thread_current();
+  int result;
   lock_acquire(&filesys_lock);
+  
   if(fd == 1)
   {
     putbuf(buffer, size);
-    lock_release(&filesys_lock);
-    return size;
+    result = size;
   }
   else if(fd > 1)
   {
-    int output=(int) file_write(t->fd_table[fd], buffer, (off_t) size);
-    lock_release(&filesys_lock);
-    return output;
+    if(thread_current()->fd_table[fd] == NULL)
+      result = -1;
+    else
+      result = (int) file_write(thread_current()->fd_table[fd], buffer, (off_t) size);
   }
   else
-  {
-    lock_release(&filesys_lock);
-    return -1;
-  } 
+    result = -1;
+
+
+  lock_release(&filesys_lock);
+  return result;
 }
 
 int syscall_read(int fd, const void* buffer, unsigned size)
 {
-  struct thread* t=thread_current();
   lock_acquire(&filesys_lock);
-  int input;
+  int result;
   if(fd == 0)
   {
-    for(input=0; input<size; input++)
+    int i = 0;
+    for(i=0; i<size; i++)
     {
       if(input_getc() == NULL)
         break;
     }
+    result = i;
   }
   else if(fd > 2)
   {
-    input = (int) file_read(t->fd_table[fd], buffer, (off_t) size);
+    if(thread_current()->fd_table[fd] == NULL)
+      result = -1;
+    else
+      result = (int) file_read(thread_current()->fd_table[fd], buffer, (off_t) size);
   }
   else
-  {
-    lock_release(&filesys_lock);
-    return -1;
-  }
+    result = -1;
   
   lock_release(&filesys_lock);
-  return input;
+  return result;
 }
 
 int syscall_open(const char* file)
 {
-  struct file* opened_file=filesys_open(file);
+  struct file* opened_file = filesys_open(file);
   int i;
 
   if(opened_file == NULL)
