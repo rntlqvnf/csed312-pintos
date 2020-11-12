@@ -62,13 +62,10 @@ process_execute (const char *file_name)
 
   for (e = list_begin(&thread_current()->childs); e != list_end(&thread_current()->childs); e = list_next(e)) {
     t = list_entry(e, struct thread, child_elem);
-      if (t->exit_status == -1) {
+      if (t->is_load_failed_thread) {
         return process_wait(tid);
       }
   }
-  
-  if(!thread_current()->success_child_load)
-    return -1;
 
   return tid;
 }
