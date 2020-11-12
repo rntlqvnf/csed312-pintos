@@ -1,5 +1,6 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
+#include <string.h>
 #include <syscall-nr.h>
 #include <user/syscall.h>
 #include "threads/interrupt.h"
@@ -134,9 +135,10 @@ void
 close_files()
 {
   int i;
-  for(i = 2; i<130; i++)
+  for(i = 0; i<130; i++)
+  {
     syscall_close(i);
-  file_close(thread_current()->self_file);
+  }
 }
 
 pid_t 
@@ -212,20 +214,30 @@ syscall_read(int fd, const void* buffer, unsigned size)
 
 int syscall_open(const char* file)
 {
+  lock_acquire(&filesys_lock);
   struct file* opened_file = filesys_open(file);
   int i;
-
-  if(opened_file == NULL)
-    return -1;
   
+  if(opened_file == NULL)
+  {
+    lock_release(&filesys_lock);
+    return -1;
+  }
+
   for(i = 2; i<130; i++)
   {
     if(thread_current()->fd_table[i] == NULL)
     {
+      if(strcmp(thread_name(), file) == 0)
+        file_deny_write(opened_file);
+
       thread_current()->fd_table[i] = opened_file;
+      lock_release(&filesys_lock);
       return i;
     }
   }
+  lock_release(&filesys_lock);
+  return -1;
 }
 
 int syscall_filesize(int fd)
@@ -254,13 +266,8 @@ unsigned syscall_tell(int fd)
 
 void syscall_close(int fd)
 {
-  if(thread_current()->fd_table[fd] == NULL)
-    return;
-  else
-  {
-    file_close(thread_current()->fd_table[fd]);
-    thread_current()->fd_table[fd] = NULL;
-  }
+  file_close(thread_current()->fd_table[fd]);
+  thread_current()->fd_table[fd] = NULL;
 }
 
 bool syscall_create(const char* file, unsigned initial_size)
@@ -272,7 +279,6 @@ bool syscall_remove(const char* file)
 {
   return filesys_remove(file);
 }
-
 
 void
 validate_addr(const void* vaddr)
@@ -290,7 +296,7 @@ validate_byte(const void* byte)
 {
   if(is_kernel_vaddr(byte))
     return false;
-  if(!pagedir_get_page(thread_current()->pagedir, byte)) //page fault
+  if(!pagedir_get_page(thread_current()->pagedir, byte))
     return false;
 
   return true;

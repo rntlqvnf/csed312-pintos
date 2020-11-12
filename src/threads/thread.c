@@ -617,15 +617,15 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* argument passing & hierarchy */
   t->parent = running_thread();
-  t->is_parent_waiting_on_this = false;
-  t->is_waiting_reaping = false;
-  sema_init(&(t->child_lock), 0);    
+  t->is_load_failed_thread = false;
+  sema_init(&(t->wait_lock), 0);    
+  sema_init(&(t->load_lock), 0);   
   sema_init(&(t->exit_reaping_lock), 0);        
   list_init(&(t->childs));
-  list_push_back(&(running_thread()->childs), &(t->child_elem));\
+  list_push_back(&(running_thread()->childs), &(t->child_elem));
 
   /* file descriptor */ 
-  for (int i = 0; i < 128; i++) {                                                         
+  for (int i = 0; i < 130; i++) {                                                         
       t->fd_table[i] = NULL;                                                                
   }   
 
