@@ -25,6 +25,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 static struct thread* find_child_by_tid (tid_t child_tid);
 static void remove_child_by_tid (tid_t child_tid);
+static void parse_file_name(char* src, char* dest);
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -46,14 +47,13 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  char *save_ptr;
   parsed_file_name = malloc(strlen(file_name)+1);
-  strlcpy (parsed_file_name, file_name, strlen(file_name)+1);
-  parsed_file_name = strtok_r(parsed_file_name, " ", &save_ptr);
+  parse_file_name(file_name, parsed_file_name);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (parsed_file_name, PRI_DEFAULT, start_process, fn_copy);
   free(parsed_file_name);
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
@@ -93,10 +93,14 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
 
   /* Pass load success to parent */
-  thread_current()->parent->success_child_load = success;
-  sema_up(&thread_current()->parent->child_lock);
+  sema_up(&thread_current()->parent->child_lock);  
+  
   if (!success)
-    syscall_exit(-1); // thread_exit()?
+  {
+    thread_current()->is_load_failed_thread = true;
+    syscall_exit(-1);
+    NOT_REACHED();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -122,17 +126,10 @@ process_wait (tid_t child_tid UNUSED)
 {
   struct thread* child = find_child_by_tid(child_tid);
 
-  if(child == NULL || child->is_parent_waiting_on_this)
-  {
+  if(child == NULL)
     return -1;
-  }
 
-  if(!child->is_waiting_reaping)
-  {
-    child->is_parent_waiting_on_this = true;
-    sema_down(&thread_current()->child_lock);
-  }
-  
+  sema_down(&child->wait_lock);
   int exit_status = child->exit_status;
   remove_child_by_tid(child_tid);
   sema_up(&child->exit_reaping_lock);
@@ -162,11 +159,8 @@ process_exit (void)
       pagedir_destroy (pd);
     }
   
-  if(cur->is_parent_waiting_on_this)
-    sema_up(&cur->parent->child_lock);
-  
-  cur->is_waiting_reaping = true;
-  sema_down(&cur->parent->exit_reaping_lock);
+  sema_up(&cur->wait_lock);
+  sema_down(&cur->exit_reaping_lock);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -209,7 +203,6 @@ static void
 remove_child_by_tid(tid_t child_tid)
 {
   struct list_elem *elem;
-  struct thread* child = NULL;
 
   for (elem = list_begin (&thread_current()->childs); elem != list_end (&thread_current()->childs);
         elem = list_next (elem))
@@ -316,28 +309,21 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
-  lock_acquire(&filesys_lock);
-
   /* Open executable file. */
   /* parse file name */
-  char *copy_file, *save_ptr;
+  char *copy_file;
   copy_file = malloc(strlen(file_name)+1);
-  strlcpy(copy_file, file_name, strlen(file_name)+1);
-  copy_file = strtok_r(copy_file," ",&save_ptr);
+  parse_file_name(file_name, copy_file);
 
   file = filesys_open (copy_file);
   free(copy_file);
 
   if (file == NULL) 
     {
-      lock_release(&filesys_lock);
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
-    
-  t->self_file=file;
-  file_deny_write(t->self_file);
-  lock_release(&filesys_lock);
+
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -421,8 +407,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  if(!success)
-    file_close (file);
+  file_close (file);
   return success;
 }
 
@@ -646,4 +631,12 @@ argument_passing(void** esp, char* file_name)
 
   free(copy_file);
   free(argv);
+}
+
+static void 
+parse_file_name(char* src, char* dest)
+{
+  char *save_ptr;
+  strlcpy (dest, src, strlen(src)+1);
+  dest = strtok_r(dest, " ", &save_ptr);
 }
