@@ -617,11 +617,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* argument passing & hierarchy */
   t->parent = running_thread();
-<<<<<<< HEAD
-=======
-  t->is_parent_waiting_on_this = false;
-  t->is_waiting_reaping = false;
->>>>>>> 4fae4cceb2e15e841ed66a72d513d64c41d67bdf
   t->is_load_failed_thread = false;
   sema_init(&(t->wait_lock), 0);    
   sema_init(&(t->load_lock), 0);   
