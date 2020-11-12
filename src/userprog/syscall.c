@@ -223,10 +223,8 @@ int syscall_open(const char* file)
     lock_release(&filesys_lock);
     return -1;
   }
-
-  for(i = 2; i<130; i++)
-  {
-    if(thread_current()->fd_table[i] == NULL)
+  
+    file_deny_write(opened_file);
     {
       if(strcmp(thread_name(), file) == 0)
         file_deny_write(opened_file);

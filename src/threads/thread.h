@@ -115,7 +115,14 @@ struct thread
     struct semaphore exit_reaping_lock;
 
     int exit_status;
+<<<<<<< HEAD
     bool is_load_failed_thread;
+=======
+    bool is_waiting_reaping;
+    bool is_parent_waiting_on_this;
+    bool is_load_failed_thread;
+    bool success_child_load;
+>>>>>>> 4fae4cceb2e15e841ed66a72d513d64c41d67bdf
     
     struct file* fd_table[130];
 

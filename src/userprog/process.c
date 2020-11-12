@@ -88,6 +88,10 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
   /* Pass load success to parent */
+<<<<<<< HEAD
+=======
+  thread_current()->parent->success_child_load = success;
+>>>>>>> 4fae4cceb2e15e841ed66a72d513d64c41d67bdf
   sema_up(&thread_current()->parent->load_lock);
 
   if (!success)
@@ -124,7 +128,16 @@ process_wait (tid_t child_tid UNUSED)
   if(child == NULL)
     return -1;
 
+<<<<<<< HEAD
   sema_down(&child->wait_lock);
+=======
+  if(!child->is_waiting_reaping)
+  {
+    child->is_parent_waiting_on_this = true;
+    sema_down(&thread_current()->wait_lock);
+  }
+  
+>>>>>>> 4fae4cceb2e15e841ed66a72d513d64c41d67bdf
   int exit_status = child->exit_status;
   remove_child_by_tid(child_tid);
   sema_up(&child->exit_reaping_lock);
@@ -155,8 +168,18 @@ process_exit (void)
       pagedir_destroy (pd);
     }
   
+<<<<<<< HEAD
   sema_up(&cur->wait_lock);
   sema_down(&cur->exit_reaping_lock);
+=======
+  if(cur->is_parent_waiting_on_this)
+    sema_up(&cur->parent->wait_lock);
+  
+  cur->is_waiting_reaping = true;
+  sema_down(&cur->parent->exit_reaping_lock);
+
+
+>>>>>>> 4fae4cceb2e15e841ed66a72d513d64c41d67bdf
 }
 
 /* Sets up the CPU for running user code in the current
