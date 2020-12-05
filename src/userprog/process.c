@@ -354,8 +354,12 @@ bool load(const char *file_name, void (**eip)(void), void **esp)
     if (t->pagedir == NULL)
         goto done;
     
-    hash_init (t->pages, page_hash_func, page_less_func, NULL);
     process_activate();
+
+    t->pages = malloc (sizeof *t->pages);
+    if(t->pages == NULL)
+        goto done;
+    hash_init (t->pages, page_hash_func, page_less_func, NULL);
 
     /* Open executable file. */
     lock_acquire(filesys_lock);
@@ -528,6 +532,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
          and zero the final PAGE_ZERO_BYTES bytes. */
+         
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 

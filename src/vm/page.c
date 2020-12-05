@@ -129,7 +129,7 @@ page_find_by_upage(void* upage)
     struct hash_elem *e;
 
     page_to_find.upage = upage;
-    e = hash_find (&thread_current()->pages, &page_to_find.elem);
+    e = hash_find (thread_current()->pages, &page_to_find.elem);
     if(e != NULL)
         return hash_entry(e, struct page, elem);
     else
