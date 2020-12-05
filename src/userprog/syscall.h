@@ -1,11 +1,11 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
-#include "../threads/synch.h"
+void syscall_init(void);
 
-void syscall_init (void);
-void syscall_exit(int status);
+struct lock *syscall_get_filesys_lock(void);
 
-struct lock filesys_lock;
+void syscall_exit(int);
+void syscall_close(int);
 
 #endif /* userprog/syscall.h */

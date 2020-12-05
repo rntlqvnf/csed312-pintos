@@ -1,300 +1,451 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
-#include <user/syscall.h>
+#include "devices/input.h"
+#include "devices/shutdown.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "lib/kernel/stdio.h"
 #include "threads/interrupt.h"
+#include "threads/palloc.h"
+#include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "process.h"
+#include "userprog/pagedir.h"
+#include "userprog/process.h"
 
-#include "../filesys/file.h"
-#include "../filesys/filesys.h"
+struct lock filesys_lock;
 
-static void syscall_handler (struct intr_frame *);
-void validate_addr(const void* vaddr);
-bool validate_byte(const void* byte);
-void close_files();
+static void syscall_handler(struct intr_frame *);
 
-void syscall_halt();
-pid_t syscall_exec(const char* cmd_line);
-int syscall_wait(pid_t pid);
-bool syscall_create(const char* file, unsigned initial_size);
-bool syscall_remove(const char* file);
-int syscall_open(const char* file);
-int syscall_filesize(int fd);
-int syscall_write(int fd, const void* buffer, unsigned size);
-int syscall_read(int fd, const void* buffer, unsigned size);
-void syscall_seek(int fd, unsigned position);
-unsigned syscall_tell(int fd);
-void syscall_close(int fd);
+static void check_vaddr(const void *);
 
-void
-syscall_init (void) 
+static void syscall_halt(void);
+static pid_t syscall_exec(const char *);
+static int syscall_wait(pid_t);
+static bool syscall_create(const char *, unsigned);
+static bool syscall_remove(const char *);
+static int syscall_open(const char *);
+static int syscall_filesize(int);
+static int syscall_read(int, void *, unsigned);
+static int syscall_write(int, const void *, unsigned);
+static void syscall_seek(int, unsigned);
+static unsigned syscall_tell(int);
+
+/* Registers the system call interrupt handler. */
+void syscall_init(void)
 {
-  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
-  lock_init(&filesys_lock);
+    intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
+    lock_init(&filesys_lock);
 }
 
+/* Pops the system call number and handles system call
+   according to it. */
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler(struct intr_frame *f)
 {
-  int *esp = f->esp;
+    void *esp = f->esp;
+    int syscall_num;
 
-  validate_addr(esp);
-  int syscall_num = *esp;
-  switch (syscall_num)
-  {
+    check_vaddr(esp);
+    check_vaddr(esp + sizeof(uintptr_t) - 1);
+    syscall_num = *(int *)esp;
+
+    switch (syscall_num)
+    {
     case SYS_HALT:
-      syscall_halt();
-      break;
+    {
+        syscall_halt();
+        NOT_REACHED();
+    }
     case SYS_EXIT:
-      validate_addr(esp+1);
-      syscall_exit(*(esp+1));
-      break;
+    {
+        int status;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        status = *(int *)(esp + sizeof(uintptr_t));
+
+        syscall_exit(status);
+        NOT_REACHED();
+    }
     case SYS_EXEC:
-      validate_addr(esp+1);
-      validate_addr(*(esp+1));
-      f->eax = syscall_exec(*(esp+1));
-      break;
-    case SYS_WAIT:
-      validate_addr(esp+1);
-      f->eax = syscall_wait(*(esp+1));
-      break;
-    case SYS_CREATE:
-      validate_addr(esp+1);
-      validate_addr(*(esp+1));
-      validate_addr(esp+2);
-      f->eax = syscall_create(*(esp+1), *(esp+2));
-      break;
-    case SYS_REMOVE:
-      validate_addr(esp+1);
-      validate_addr(*(esp+1));
-      f->eax = syscall_remove(*(esp+1));
-      break;
-    case SYS_OPEN:
-      validate_addr(esp+1);
-      validate_addr(*(esp+1));
-      f->eax = syscall_open(*(esp+1));
-      break;
-    case SYS_FILESIZE:
-      validate_addr(esp+1);
-      f->eax = syscall_filesize(*(esp+1));
-      break;
-    case SYS_READ:
-      validate_addr(esp+1);
-      validate_addr(esp+2);
-      validate_addr(*(esp+2));
-      validate_addr(esp+3);
-      f->eax = syscall_read(*(esp+1), *(esp+2), *(esp+3));
-      break;
-    case SYS_WRITE:
-      validate_addr(esp+1);
-      validate_addr(esp+2);
-      validate_addr(*(esp+2));
-      validate_addr(esp+3);
-      f->eax = syscall_write(*(esp+1), *(esp+2), *(esp+3));
-      break;
-    case SYS_SEEK:
-      validate_addr(esp+1);
-      validate_addr(esp+2);
-      syscall_seek(*(esp+1), *(esp+2));
-      break;
-    case SYS_TELL:
-      validate_addr(esp+1);
-      f->eax = syscall_tell(*(esp+1));
-      break;
-    case SYS_CLOSE:
-      validate_addr(esp+1);
-      syscall_close(*(esp+1));
-      break;
-    default:
-      printf("Not implemented \n");
-      break;
-  }
-}
-
-void
-syscall_halt()
-{
-  shutdown_power_off();
-  NOT_REACHED();
-}
-
-void
-syscall_exit(int status)
-{
-  printf("%s: exit(%d)\n", thread_name(), status);
-  thread_current()->exit_status = status;
-  close_files();
-  thread_exit();
-  NOT_REACHED();
-}
-
-void
-close_files()
-{
-  int i;
-  for(i = 0; i<130; i++)
-    syscall_close(i);
-}
-
-pid_t 
-syscall_exec(const char* cmd_line)
-{
-  return process_execute(cmd_line);
-}
-
-int 
-syscall_wait(pid_t pid)
-{
-  return process_wait(pid);
-}
-
-int 
-syscall_write(int fd, const void* buffer, unsigned size)
-{
-  int result;
-  lock_acquire(&filesys_lock);
-  
-  if(fd == 1)
-  {
-    putbuf(buffer, size);
-    result = size;
-  }
-  else if(fd > 1)
-  {
-    if(thread_current()->fd_table[fd] == NULL)
-      result = -1;
-    else
-      result = (int) file_write(thread_current()->fd_table[fd], buffer, (off_t) size);
-  }
-  else
-    result = -1;
-
-  lock_release(&filesys_lock);
-  return result;
-}
-
-int 
-syscall_read(int fd, const void* buffer, unsigned size)
-{
-  lock_acquire(&filesys_lock);
-  int result;
-	uint8_t* bf = (uint8_t *) buffer;
-  if(fd == 0)
-  {
-    int i = 0;
-    uint8_t b;
-    for(i=0; i<size; i++)
     {
-      if(b = input_getc() == NULL)
+        char *cmd_line;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        cmd_line = *(char **)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_exec(cmd_line);
         break;
-      else
-        *bf++ = b;
     }
-    result = i;
-  }
-  else if(fd > 1)
-  {
-    if(thread_current()->fd_table[fd] == NULL)
-      result = -1;
-    else
-      result = (int) file_read(thread_current()->fd_table[fd], buffer, (off_t) size);
-  }
-  else
-    result = -1;
-  
-  lock_release(&filesys_lock);
-  return result;
-}
-
-int syscall_open(const char* file)
-{
-  lock_acquire(&filesys_lock);
-  struct file* opened_file = filesys_open(file);
-  int i;
-  
-  if(opened_file == NULL)
-  {
-    lock_release(&filesys_lock);
-    return -1;
-  }
-
-  for(i = 2; i<130; i++)
-  {
-    if(thread_current()->fd_table[i] == NULL)
+    case SYS_WAIT:
     {
-      if(strcmp(thread_name(), file) == 0)
-        file_deny_write(opened_file);
+        pid_t pid;
 
-      thread_current()->fd_table[i] = opened_file;
-      lock_release(&filesys_lock);
-      return i;
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        pid = *(pid_t *)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_wait(pid);
+        break;
     }
-  }
-  lock_release(&filesys_lock);
-  return -1;
+    case SYS_CREATE:
+    {
+        char *file;
+        unsigned initial_size;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 3 * sizeof(uintptr_t) - 1);
+        file = *(char **)(esp + sizeof(uintptr_t));
+        initial_size = *(unsigned *)(esp + 2 * sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_create(file, initial_size);
+        break;
+    }
+    case SYS_REMOVE:
+    {
+        char *file;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        file = *(char **)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_remove(file);
+        break;
+    }
+    case SYS_OPEN:
+    {
+        char *file;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        file = *(char **)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_open(file);
+        break;
+    }
+    case SYS_FILESIZE:
+    {
+        int fd;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_filesize(fd);
+        break;
+    }
+    case SYS_READ:
+    {
+        int fd;
+        void *buffer;
+        unsigned size;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+        buffer = *(void **)(esp + 2 * sizeof(uintptr_t));
+        size = *(unsigned *)(esp + 3 * sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_read(fd, buffer, size);
+        break;
+    }
+    case SYS_WRITE:
+    {
+        int fd;
+        void *buffer;
+        unsigned size;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 4 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+        buffer = *(void **)(esp + 2 * sizeof(uintptr_t));
+        size = *(unsigned *)(esp + 3 * sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_write(fd, buffer, size);
+        break;
+    }
+    case SYS_SEEK:
+    {
+        int fd;
+        unsigned position;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 3 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+        position = *(unsigned *)(esp + 2 * sizeof(uintptr_t));
+
+        syscall_seek(fd, position);
+        break;
+    }
+    case SYS_TELL:
+    {
+        int fd;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+
+        f->eax = (uint32_t)syscall_tell(fd);
+        break;
+    }
+    case SYS_CLOSE:
+    {
+        int fd;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+
+        syscall_close(fd);
+        break;
+    }
+    default:
+        syscall_exit(-1);
+    }
 }
 
-int syscall_filesize(int fd)
+/* Checks user-provided virtual address. If it is
+   invalid, terminates the current process. */
+static void
+check_vaddr(const void *vaddr)
 {
-  if(thread_current()->fd_table[fd] == NULL)
-    return -1;
-
-  return (int) file_length(thread_current()->fd_table[fd]);
+    if (!vaddr || !is_user_vaddr(vaddr) ||
+        !pagedir_get_page(thread_get_pagedir(), vaddr))
+        syscall_exit(-1);
 }
 
-void syscall_seek(int fd, unsigned position)
+struct lock *syscall_get_filesys_lock(void)
 {
-  if(thread_current()->fd_table[fd] == NULL)
-    return;
-  else
-    file_seek(thread_current()->fd_table[fd], (off_t) position);
+    return &filesys_lock;
 }
 
-unsigned syscall_tell(int fd)
+/* Handles halt() system call. */
+static void syscall_halt(void)
 {
-  if(thread_current()->fd_table[fd] == NULL)
-    return -1;
-  else
-    return (unsigned) file_tell(thread_current()->fd_table[fd]);
+    shutdown_power_off();
 }
 
+/* Handles exit() system call. */
+void syscall_exit(int status)
+{
+    struct process *pcb = thread_get_pcb();
+
+    pcb->exit_status = status;
+    printf("%s: exit(%d)\n", thread_name(), status);
+    thread_exit();
+}
+
+/* Handles exec() system call. */
+static pid_t syscall_exec(const char *cmd_line)
+{
+    pid_t pid;
+    struct process *child;
+    int i;
+
+    check_vaddr(cmd_line);
+    for (i = 0; *(cmd_line + i); i++)
+        check_vaddr(cmd_line + i + 1);
+
+    pid = process_execute(cmd_line);
+    child = process_get_child(pid);
+
+    if (!child || !child->is_loaded)
+        return PID_ERROR;
+
+    return pid;
+}
+
+/* Handles wait() system call. */
+static int syscall_wait(pid_t pid)
+{
+    return process_wait(pid);
+}
+
+/* Handles create() system call. */
+static bool syscall_create(const char *file, unsigned initial_size)
+{
+    bool success;
+    int i;
+
+    check_vaddr(file);
+    for (i = 0; *(file + i); i++)
+        check_vaddr(file + i + 1);
+
+    lock_acquire(&filesys_lock);
+    success = filesys_create(file, (off_t)initial_size);
+    lock_release(&filesys_lock);
+
+    return success;
+}
+
+/* Handles remove() system call. */
+static bool syscall_remove(const char *file)
+{
+    bool success;
+    int i;
+
+    check_vaddr(file);
+    for (i = 0; *(file + i); i++)
+        check_vaddr(file + i + 1);
+
+    lock_acquire(&filesys_lock);
+    success = filesys_remove(file);
+    lock_release(&filesys_lock);
+
+    return success;
+}
+
+/* Handles open() system call. */
+static int syscall_open(const char *file)
+{
+    struct file_descriptor_entry *fde;
+    struct file *new_file;
+    int i;
+
+    check_vaddr(file);
+    for (i = 0; *(file + i); i++)
+        check_vaddr(file + i + 1);
+
+    fde = palloc_get_page(0);
+    if (!fde)
+        return -1;
+
+    lock_acquire(&filesys_lock);
+
+    new_file = filesys_open(file);
+    if (!new_file)
+    {
+        palloc_free_page(fde);
+        lock_release(&filesys_lock);
+
+        return -1;
+    }
+
+    fde->fd = thread_get_next_fd();
+    fde->file = new_file;
+    list_push_back(thread_get_fdt(), &fde->fdtelem);
+
+    lock_release(&filesys_lock);
+
+    return fde->fd;
+}
+
+/* Handles filesize() system call. */
+static int syscall_filesize(int fd)
+{
+    struct file_descriptor_entry *fde = process_get_fde(fd);
+    int filesize;
+
+    if (!fde)
+        return -1;
+
+    lock_acquire(&filesys_lock);
+    filesize = file_length(fde->file);
+    lock_release(&filesys_lock);
+
+    return filesize;
+}
+
+/* Handles read() system call. */
+static int syscall_read(int fd, void *buffer, unsigned size)
+{
+    struct file_descriptor_entry *fde;
+    int bytes_read, i;
+
+    for (i = 0; i < size; i++)
+        check_vaddr(buffer + i);
+
+    if (fd == 0)
+    {
+        unsigned i;
+
+        for (i = 0; i < size; i++)
+            *(uint8_t *)(buffer + i) = input_getc();
+
+        return size;
+    }
+
+    fde = process_get_fde(fd);
+    if (!fde)
+        return -1;
+
+    lock_acquire(&filesys_lock);
+    bytes_read = (int)file_read(fde->file, buffer, (off_t)size);
+    lock_release(&filesys_lock);
+
+    return bytes_read;
+}
+
+/* Handles write() system call. */
+static int syscall_write(int fd, const void *buffer, unsigned size)
+{
+    struct file_descriptor_entry *fde;
+    int bytes_written, i;
+
+    for (i = 0; i < size; i++)
+        check_vaddr(buffer + i);
+
+    if (fd == 1)
+    {
+        putbuf((const char *)buffer, (size_t)size);
+
+        return size;
+    }
+
+    fde = process_get_fde(fd);
+    if (!fde)
+        return -1;
+
+    lock_acquire(&filesys_lock);
+    bytes_written = (int)file_write(fde->file, buffer, (off_t)size);
+    lock_release(&filesys_lock);
+
+    return bytes_written;
+}
+
+/* Handles seek() system call. */
+static void syscall_seek(int fd, unsigned position)
+{
+    struct file_descriptor_entry *fde = process_get_fde(fd);
+
+    if (!fde)
+        return;
+
+    lock_acquire(&filesys_lock);
+    file_seek(fde->file, (off_t)position);
+    lock_release(&filesys_lock);
+}
+
+/* Handles tell() system call. */
+static unsigned syscall_tell(int fd)
+{
+    struct file_descriptor_entry *fde = process_get_fde(fd);
+    unsigned pos;
+
+    if (!fde)
+        return -1;
+
+    lock_acquire(&filesys_lock);
+    pos = (unsigned)file_tell(fde->file);
+    lock_release(&filesys_lock);
+
+    return pos;
+}
+
+/* Handles close() system call. */
 void syscall_close(int fd)
 {
-  file_close(thread_current()->fd_table[fd]);
-  thread_current()->fd_table[fd] = NULL;
-}
+    struct file_descriptor_entry *fde = process_get_fde(fd);
 
-bool syscall_create(const char* file, unsigned initial_size)
-{
-  return filesys_create(file, (off_t) initial_size);
-}
+    if (!fde)
+        return;
 
-bool syscall_remove(const char* file)
-{
-  return filesys_remove(file);
-}
-
-
-void
-validate_addr(const void* vaddr)
-{
-  int i;
-  for(i=0; i<4; i++)
-  { 
-    if(validate_byte(vaddr+i) == false)
-      syscall_exit(-1);
-  }
-}
-
-bool 
-validate_byte(const void* byte)
-{
-  if(is_kernel_vaddr(byte))
-    return false;
-  if(!pagedir_get_page(thread_current()->pagedir, byte)) //page fault
-    return false;
-
-  return true;
+    lock_acquire(&filesys_lock);
+    file_close(fde->file);
+    list_remove(&fde->fdtelem);
+    palloc_free_page(fde);
+    lock_release(&filesys_lock);
 }
