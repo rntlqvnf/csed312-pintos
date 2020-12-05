@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "vm/frame.h"
 #include "threads/thread.h"
+#include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "filesys/file.h"
 
@@ -67,33 +68,41 @@ page_set_with_zero(void *upage)
 bool
 page_load(void *upage)
 {
-    struct page* page_to_load = page_find_by_upage(upage);
-    if (page_to_load == NULL || page_to_load->frame != NULL)
+    struct page* p = page_find_by_upage(upage);
+    if (p == NULL || p->frame != NULL)
         return false;
     
-    struct frame* new_frame = frame_allocate(page_to_load);
+    struct frame* new_frame = frame_allocate(p);
     if(new_frame == NULL)
         return false;
     
-    if(page_to_load->sector != (block_sector_t) -1)
+    if(p->sector != (block_sector_t) -1)
     {
         // TODO: swap
     }
-    else if(page_to_load->file != NULL)
+    else if(p->file != NULL)
     {
-        file_seek (page_to_load->file, page_to_load->ofs);
-        if (file_read (page_to_load->file, new_frame->kpage, page_to_load->read_bytes) != (int) page_to_load->read_bytes)
+        file_seek(p->file, p->ofs);
+        if (file_read(p->file, new_frame->kpage, p->read_bytes) != (int) p->read_bytes)
         {
+            frame_remove_and_free_page(new_frame->kpage);
             return false;
         }
-        memset (new_frame->kpage + page_to_load->read_bytes, 0, page_to_load->zero_bytes);
+        memset(new_frame->kpage + p->read_bytes, 0, p->zero_bytes);
     }
     else
     {
-      memset (page_to_load->frame->kpage, 0, PGSIZE);
+      memset(new_frame->kpage, 0, PGSIZE);
+    }
+    
+    if(!pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, p->writable))
+    {
+        frame_remove_and_free_page(new_frame->kpage);
+        return false;
     }
 
-    //TODO: SET PAGEDIR
+    p->frame = new_frame;
+    return true;
 }
 
 void

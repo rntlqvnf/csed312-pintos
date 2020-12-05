@@ -25,6 +25,7 @@ struct page
 
 bool page_set_with_file(void* upage, struct file* file, off_t ofs, uint32_t read_bytes,  uint32_t zero_bytes, bool writable);
 bool page_set_with_zero(void *upage);
+bool page_load(void *upage);
 void page_exit(void);
 void page_destory(struct hash_elem *e, void *aux);
 struct page* page_find_by_upage(void* upage);

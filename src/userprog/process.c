@@ -548,19 +548,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(void **esp)
 {
-    uint8_t *kpage;
-    bool success = false;
-
-    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-    if (kpage != NULL)
-    {
-        success = install_page(((uint8_t *)PHYS_BASE) - PGSIZE, kpage, true);
-        if (success)
-            *esp = PHYS_BASE;
-        else
-            palloc_free_page(kpage);
-    }
-    return success;
+    if(!page_set_with_zero(PHYS_BASE - PGSIZE))
+        return false;
+    
+    if(!page_load(PHYS_BASE - PGSIZE))
+        return false;
+    
+    *esp = PHYS_BASE;
+    return true;
 }
 
 /* Adds a mapping from user virtual address UPAGE to kernel

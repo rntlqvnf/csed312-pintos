@@ -45,6 +45,7 @@ frame_allocate(struct page* page)
         new_frame->page = page;
     }
 
+    list_push_back (&frames, &new_frame->elem);
     lock_release(&frames_lock);
     return new_frame;
 }
