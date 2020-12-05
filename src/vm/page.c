@@ -20,7 +20,7 @@ page_set_with_file(
     {
         new_page->upage = upage;
         new_page->file = file;
-        new_page->ofs = file;
+        new_page->ofs = ofs;
         new_page->read_bytes = read_bytes;
         new_page->zero_bytes = zero_bytes;
         new_page->writable = writable;

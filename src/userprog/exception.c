@@ -162,7 +162,9 @@ page_fault(struct intr_frame *f)
             syscall_exit(-1);
     }
 
-    if(!page_load(pg_round_down(fault_addr)))
+    if(page_load(pg_round_down(fault_addr)))
+       return;
+    else 
         syscall_exit(-1);    
 
     /* To implement virtual memory, delete the rest of the function
