@@ -655,6 +655,7 @@ init_thread(struct thread *t, const char *name, int priority)
     list_init(&t->fdt);
     t->next_fd = 2;
 #endif
+    t->pages = NULL;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();

@@ -16,6 +16,7 @@ struct frame
 void frame_init (void);
 struct frame* frame_allocate(struct page* page);
 void frame_remove(void *kpage);
+void frame_remove_and_free_page(void *kpage)
 struct frame * frame_find_by_kpage(void *kpage);
 
 #endif

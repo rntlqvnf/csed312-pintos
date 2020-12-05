@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <hash.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -115,6 +116,8 @@ struct thread
     int next_fd;               /* File descriptor for next file. */
     struct file *running_file; /* Currently running file. */
 #endif
+
+   struct hash *pages;  /* Project 3 virtual pages */
 
     /* Owned by thread.c. */
     unsigned magic; /* Detects stack overflow. */

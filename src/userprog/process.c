@@ -1,6 +1,7 @@
 #include "userprog/process.h"
 #include <debug.h>
 #include <inttypes.h>
+#include <hash.h>
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +19,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -179,6 +181,9 @@ void process_exit(void)
     lock_acquire(filesys_lock);
     file_close(thread_get_running_file());
     lock_release(filesys_lock);
+
+    /* Destory page table */
+    page_exit();
 
     /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -348,6 +353,8 @@ bool load(const char *file_name, void (**eip)(void), void **esp)
     t->pagedir = pagedir_create();
     if (t->pagedir == NULL)
         goto done;
+    
+    hash_init (t->pages, page_hash_func, page_less_func, NULL);
     process_activate();
 
     /* Open executable file. */
@@ -524,30 +531,14 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-        /* Get a page of memory. */
-        uint8_t *kpage = palloc_get_page(PAL_USER);
-        if (kpage == NULL)
+        if(!page_set_with_file(file, ofs, upage, read_bytes, zero_bytes, writable))
             return false;
-
-        /* Load this page. */
-        if (file_read(file, kpage, page_read_bytes) != (int)page_read_bytes)
-        {
-            palloc_free_page(kpage);
-            return false;
-        }
-        memset(kpage + page_read_bytes, 0, page_zero_bytes);
-
-        /* Add the page to the process's address space. */
-        if (!install_page(upage, kpage, writable))
-        {
-            palloc_free_page(kpage);
-            return false;
-        }
-
+        
         /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
         upage += PGSIZE;
+        ofs += PGSIZE;
     }
     return true;
 }

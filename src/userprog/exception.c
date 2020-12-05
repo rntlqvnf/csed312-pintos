@@ -5,12 +5,17 @@
 #include "userprog/syscall.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
+#include "vm/page.h"
+
+#define STACK_SIZE (8 * (1 << 20))
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
 
 static void kill(struct intr_frame *);
 static void page_fault(struct intr_frame *);
+static bool is_stack_access(int32_t addr, uint32_t* esp);
 
 /* Registers handlers for interrupts that can be caused by user
    programs.
@@ -148,10 +153,16 @@ page_fault(struct intr_frame *f)
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
-    /* If page fault occurs in user mode, terminates the current
-     process. */
-    if (user)
+    if(fault_addr == NULL || !not_present || !is_user_vaddr(fault_addr))
         syscall_exit(-1);
+
+    if(is_stack_access(fault_addr, f->esp))
+    {
+        if(!page_set_with_zero(pg_round_down(fault_addr)))
+            syscall_exit(-1);
+    }
+
+    
 
     /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to
@@ -162,4 +173,12 @@ page_fault(struct intr_frame *f)
            write ? "writing" : "reading",
            user ? "user" : "kernel");
     kill(f);
+}
+
+static bool
+is_stack_access(int32_t fault_addr, uint32_t* esp)
+{
+    return fault_addr >= (esp - 32) && 
+            (PHYS_BASE - pg_round_down(fault_addr)) <= STACK_SIZE && 
+            page_find_by_upage(pg_round_down(fault_addr)) == NULL;
 }

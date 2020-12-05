@@ -27,7 +27,7 @@ frame_allocate(struct page* page)
 {
     lock_acquire(&frames_lock);
 
-    struct frame* new_frame;
+    struct frame* new_frame = NULL;
     void* kpage = palloc_get_page(PAL_USER);
     if(kpage == NULL) //No free page, eviction needs
     {
@@ -37,7 +37,6 @@ frame_allocate(struct page* page)
 
     if(new_frame == NULL) 
     {
-        printf("FAILED TO MALLOC NEW FRAME\n");
         palloc_free_page(kpage);
     }
     else
@@ -50,9 +49,22 @@ frame_allocate(struct page* page)
     return new_frame;
 }
 
-
-
 /* Remove frame by kpage */
+void
+frame_remove_and_free_page(void *kpage)
+{
+    lock_acquire(&frames_lock);
+    struct frame* frame_to_remove = frame_find_by_kpage(kpage);
+    if(frame_to_remove != NULL)
+    {
+        list_remove(&frame_to_remove->elem);
+        free(frame_to_remove);
+        palloc_free_page(frame_to_remove->kpage);
+    }
+    lock_release(&frames_lock);
+}
+
+/* Remove frame by kpage without palloc_free_page */
 void
 frame_remove(void *kpage)
 {
@@ -62,7 +74,6 @@ frame_remove(void *kpage)
     {
         list_remove(&frame_to_remove->elem);
         free(frame_to_remove);
-        palloc_free_page(frame_to_remove->kpage);
     }
     lock_release(&frames_lock);
 }
