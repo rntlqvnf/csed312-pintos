@@ -78,11 +78,11 @@ frame_evict(struct frame* frame)
 {
     ASSERT (lock_held_by_current_thread (&frames_lock));
 
-    bool dirty = pagedir_is_dirty(frame->page->thread->pagedir, frame->page->upage);
+    bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), frame->page->upage);
     //TODO : Evcition
 
     frame->page->frame = NULL;
-    pagedir_clear_page(frame->page->thread->pagedir, frame->page->upage);
+    pagedir_clear_page(get_pagedir_of_frame(frame), frame->page->upage);
     return true;
 }
 
@@ -146,4 +146,10 @@ void
 frame_push_back(struct frame* frame)
 {
     list_push_back (&frames, &frame->elem);
+}
+
+uint32_t *
+get_pagedir_of_frame(struct frame* frame)
+{
+    return frame->page->thread->pagedir;
 }

@@ -21,5 +21,8 @@ void frame_remove_and_free_page(void *kpage);
 struct frame * frame_find_by_kpage(void *kpage);
 void frame_page_reassign_and_remove_list(struct frame* f, struct page* p);
 bool frame_evict(struct frame* frame);
+struct frame* frame_to_evict(void);
+struct frame* frame_evict_and_reassign(struct page* page);
+uint32_t* get_pagedir_of_frame(struct frame* frame);
 
 #endif

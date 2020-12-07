@@ -13,6 +13,7 @@
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "vm/page.h"
 
 struct lock filesys_lock;
 
@@ -212,8 +213,8 @@ syscall_handler(struct intr_frame *f)
 static void
 check_vaddr(const void *vaddr)
 {
-    if (!vaddr || !is_user_vaddr(vaddr) ||
-        !pagedir_get_page(thread_get_pagedir(), vaddr))
+
+    if (!vaddr || !is_user_vaddr(vaddr) || !page_find_by_upage(pg_round_down(vaddr)))
         syscall_exit(-1);
 }
 
@@ -354,7 +355,6 @@ static int syscall_read(int fd, void *buffer, unsigned size)
 {
     struct file_descriptor_entry *fde;
     int bytes_read, i;
-
     for (i = 0; i < size; i++)
         check_vaddr(buffer + i);
 
