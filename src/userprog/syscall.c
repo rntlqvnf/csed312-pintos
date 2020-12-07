@@ -236,6 +236,7 @@ void syscall_exit(int status)
 
     pcb->exit_status = status;
     printf("%s: exit(%d)\n", thread_name(), status);
+    if(lock_held_by_current_thread(&filesys_lock)) lock_release(&filesys_lock);
     thread_exit();
 }
 
