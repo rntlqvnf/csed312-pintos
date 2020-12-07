@@ -6,6 +6,8 @@
 #include "threads/palloc.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/thread.h"
+#include "userprog/pagedir.h"
 
 static struct list frames;
 
@@ -30,24 +32,65 @@ frame_allocate(struct page* page)
     struct frame* new_frame = NULL;
     void* kpage = palloc_get_page(PAL_USER);
     if(kpage == NULL) //No free page, eviction needs
-    {
-        //TODO: Eviction
-    }
-    new_frame = malloc(sizeof(struct frame));
-
-    if(new_frame == NULL) 
-    {
-        palloc_free_page(kpage);
-    }
+        new_frame = frame_evict_and_reassign(page);
     else
     {
-        new_frame->kpage = kpage;
-        new_frame->page = page;
+        new_frame = malloc(sizeof(struct frame));
+
+        if(new_frame == NULL) 
+        {
+            palloc_free_page(kpage);
+        }
+        else
+        {
+            new_frame->kpage = kpage;
+            new_frame->page = page;
+        }
     }
 
-    list_push_back (&frames, &new_frame->elem);
     lock_release(&frames_lock);
     return new_frame;
+}
+
+struct frame*
+frame_evict_and_reassign(struct page* page)
+{
+    ASSERT (lock_held_by_current_thread (&frames_lock));
+
+    struct frame* frame = frame_to_evict();
+    if(frame == NULL) return NULL;
+
+    if(!frame_evict(frame)) return NULL;
+    frame_page_reassign_and_remove_list(frame, page);
+}
+
+struct frame*
+frame_to_evict(void)
+{
+    // CURRENT: FIFO
+    ASSERT (lock_held_by_current_thread (&frames_lock));
+
+    return list_entry(list_begin (&frames), struct frame, elem);
+}
+
+bool
+frame_evict(struct frame* frame)
+{
+    ASSERT (lock_held_by_current_thread (&frames_lock));
+
+    bool dirty = pagedir_is_dirty(frame->page->thread->pagedir, frame->page->upage);
+    //TODO : Evcition
+
+    frame->page->frame = NULL;
+    pagedir_clear_page(frame->page->thread->pagedir, frame->page->upage);
+    return true;
+}
+
+void
+frame_page_reassign_and_remove_list(struct frame* frame, struct page* page)
+{
+    frame->page = page;
+    list_remove(&frame->elem);
 }
 
 /* Remove frame by kpage */
@@ -97,4 +140,10 @@ frame_find_by_kpage(void *kpage)
         }
     
     return NULL;
+}
+
+void
+frame_push_back(struct frame* frame)
+{
+    list_push_back (&frames, &frame->elem);
 }

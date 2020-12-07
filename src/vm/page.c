@@ -102,6 +102,7 @@ page_load(void *upage)
     }
 
     p->frame = new_frame;
+    frame_push_back(p->frame); //After init, push
     return true;
 }
 
