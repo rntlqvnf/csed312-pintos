@@ -2,7 +2,6 @@
 #include <bitmap.h>
 #include "vm/frame.h"
 #include "vm/page.h"
-#include "devices/"
 #include "threads/vaddr.h"
 #include "threads/synch.h"
 
@@ -57,7 +56,7 @@ swap_out(void *kpage)
 
     ASSERT(kpage != NULL);
 
-    size_t swap_index = bitmap_scan_and_flip (swap_map, 0, 1, true);
+    size_t swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, true);
     if (swap_index == BITMAP_ERROR)
         return (size_t) -1;
     

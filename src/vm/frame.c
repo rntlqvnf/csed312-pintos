@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <list.h>
 #include "vm/page.h"
+#include "vm/swap.h"
 #include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/synch.h"
@@ -85,7 +86,7 @@ frame_evict(struct frame* frame)
     switch (page->type)
     {
     case PAGE_ZERO:
-        //Do Swap OUT
+        if(!swap_frame(page, frame)) return false;
         break;
     
     case PAGE_MMAP:
@@ -97,9 +98,7 @@ frame_evict(struct frame* frame)
     
     case PAGE_FILE:
         if(dirty)
-        {
-            //Do swap OUT
-        }
+            if(!swap_frame(page, frame)) return false;
         break;
 
     default:
@@ -110,6 +109,19 @@ frame_evict(struct frame* frame)
     page->frame = NULL;
     pagedir_clear_page(get_pagedir_of_frame(frame), page->upage);
     return true;
+}
+
+bool
+swap_frame(struct page* page, struct frame* frame)
+{
+    page->swap_index = swap_out(frame->kpage);
+    if(page->swap_index == (size_t) -1) 
+        return false;
+    else 
+    {
+        page->type = PAGE_SWAP;
+        return true;
+    }
 }
 
 void
