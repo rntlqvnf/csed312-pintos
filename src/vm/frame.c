@@ -18,15 +18,9 @@ static struct lock frames_lock;
 static struct list_elem* frame_clock_points;
 
 static inline bool
-is_head(struct list_elem *elem)
+is_tail(struct list_elem *elem)
 {
-    return elem != NULL && elem->prev == NULL && elem->next != NULL;
-}
-
-static inline bool
-is_interior(struct list_elem *elem)
-{
-    return elem != NULL && elem->prev != NULL && elem->next != NULL;
+    return elem != NULL && elem->prev != NULL && elem->next == NULL;
 }
 
 void
@@ -34,7 +28,7 @@ frame_init (void)
 {
     lock_init(&frames_lock);
     list_init(&frames);
-    frame_clock_points = list_head(&frames);
+    frame_clock_points = list_tail(&frames);
 }
 
 /* Allocate frame, and register page with given page
@@ -81,33 +75,6 @@ frame_evict_and_reassign(struct page* page)
     frame_page_reassign_and_remove_list(frame, page);
 }
 
-/* CLock Algorithm */
-struct frame*
-frame_to_evict(void) 
-{
-    ASSERT (lock_held_by_current_thread (&frames_lock));
-
-    struct frame* frame = frame_clock_forward();
-    while(pagedir_is_accessed (get_pagedir_of_frame(frame), frame->page->upage))
-    {
-        pagedir_set_accessed (get_pagedir_of_frame(frame), frame->page->upage, false);
-        frame = frame_clock_forward();
-    }
-
-    return frame;
-}
-
-struct frame*
-frame_clock_forward(void)
-{
-    ASSERT (lock_held_by_current_thread (&frames_lock));
-
-    struct list_elem* elem;
-    if(is_interior(elem)) elem = list_front(&frames);
-    else elem = list_next(frame_clock_points);
-
-    return elem;
-}
 
 bool
 frame_evict(struct frame* frame)
@@ -144,6 +111,35 @@ frame_evict(struct frame* frame)
     page->frame = NULL;
     pagedir_clear_page(get_pagedir_of_frame(frame), page->upage);
     return true;
+}
+
+/* CLock Algorithm */
+struct frame*
+frame_to_evict(void) 
+{
+    ASSERT (lock_held_by_current_thread (&frames_lock));
+
+    struct frame* frame = frame_clock_forward();
+    while(pagedir_is_accessed (get_pagedir_of_frame(frame), frame->page->upage))
+    {
+        pagedir_set_accessed (get_pagedir_of_frame(frame), frame->page->upage, false);
+        frame = frame_clock_forward();
+    }
+
+    return frame;
+}
+
+struct frame*
+frame_clock_forward(void)
+{
+    ASSERT (lock_held_by_current_thread (&frames_lock));
+
+    struct list_elem* next_elem;
+    if(is_tail(frame_clock_points)) next_elem = list_front(&frames);
+    else next_elem = list_next(frame_clock_points);
+
+    frame_clock_points = next_elem;
+    return list_entry (next_elem, struct frame, elem);
 }
 
 bool
