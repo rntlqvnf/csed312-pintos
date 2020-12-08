@@ -31,6 +31,7 @@ struct page
         off_t ofs;
 
         enum page_type type;
+        enum page_type prev_type;
     };
 
 bool page_set_with_file(void* upage, struct file* file, off_t ofs, uint32_t read_bytes,  uint32_t zero_bytes, bool writable, bool is_mmap);

@@ -78,13 +78,38 @@ frame_evict(struct frame* frame)
 {
     ASSERT (lock_held_by_current_thread (&frames_lock));
 
-    bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), frame->page->upage);
-    //TODO : Evcition
-
+    struct page* page = frame->page;
+    bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), page->upage);
     
+    page->prev_type = page->type;
+    switch (page->type)
+    {
+    case PAGE_ZERO:
+        //Do Swap
+        break;
+    
+    case PAGE_MMAP:
+        if(dirty)
+        {
+            //Do write back
+        }
+        break;
+    
+    case PAGE_FILE:
+        if(dirty)
+        {
+            //Do swap
+            page->type = PAGE_SWAP;
+        }
+        break;
 
-    frame->page->frame = NULL;
-    pagedir_clear_page(get_pagedir_of_frame(frame), frame->page->upage);
+    default:
+        NOT_REACHED();
+        break;
+    }
+
+    page->frame = NULL;
+    pagedir_clear_page(get_pagedir_of_frame(frame), page->upage);
     return true;
 }
 

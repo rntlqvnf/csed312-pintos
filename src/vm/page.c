@@ -83,6 +83,7 @@ page_load(void *upage)
     switch (p->type)
     {
     case PAGE_SWAP:
+        p->type = p->prev_type;
         break;
     
     case PAGE_FILE:
