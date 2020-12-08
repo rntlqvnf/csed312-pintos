@@ -85,7 +85,7 @@ frame_evict(struct frame* frame)
     switch (page->type)
     {
     case PAGE_ZERO:
-        //Do Swap
+        //Do Swap OUT
         break;
     
     case PAGE_MMAP:
@@ -98,8 +98,7 @@ frame_evict(struct frame* frame)
     case PAGE_FILE:
         if(dirty)
         {
-            //Do swap
-            page->type = PAGE_SWAP;
+            //Do swap OUT
         }
         break;
 

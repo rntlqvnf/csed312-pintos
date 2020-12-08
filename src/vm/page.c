@@ -2,6 +2,7 @@
 #include <hash.h>
 #include <stdio.h>
 #include "vm/frame.h"
+#include "vm/swap.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
@@ -24,7 +25,7 @@ page_set_with_file(
         new_page->read_bytes = read_bytes;
         new_page->zero_bytes = zero_bytes;
         new_page->writable = writable;
-        new_page->sector = (block_sector_t) -1;
+        new_page->swap_index = -1;
         new_page->thread = thread_current();
         new_page->frame = NULL;
         new_page->type = is_mmap ? PAGE_MMAP : PAGE_FILE;
@@ -55,7 +56,7 @@ page_set_with_zero(void *upage)
         new_page->read_bytes = 0;
         new_page->zero_bytes = 0;
         new_page->writable = true;
-        new_page->sector = (block_sector_t) -1;
+        new_page->swap_index = -1;
         new_page->thread = thread_current();
         new_page->frame = NULL;
         new_page->type = PAGE_ZERO;
@@ -72,27 +73,29 @@ page_set_with_zero(void *upage)
 bool
 page_load(void *upage)
 {
-    struct page* p = page_find_by_upage(upage);
-    if (p == NULL || p->frame != NULL)
+    struct page* page_to_load = page_find_by_upage(upage);
+    if (page_to_load == NULL || page_to_load->frame != NULL)
         return false;
     
-    struct frame* new_frame = frame_allocate(p);
+    struct frame* new_frame = frame_allocate(page_to_load);
     if(new_frame == NULL)
         return false;
     
-    switch (p->type)
+    bool success;
+    switch (page_to_load->type)
     {
     case PAGE_SWAP:
-        p->type = p->prev_type;
+        page_to_load->type = page_to_load->prev_type;
+        success = swap_in(new_frame->kpage, page_to_load->swap_index);
         break;
     
     case PAGE_FILE:
     case PAGE_MMAP:
-        page_load_with_file(new_frame, p);
+        success = page_load_with_file(new_frame, page_to_load);
         break;
     
     case PAGE_ZERO:
-        memset(new_frame->kpage, 0, PGSIZE);
+        success = memset(new_frame->kpage, 0, PGSIZE) != NULL;
         break;
 
     default:
@@ -100,14 +103,14 @@ page_load(void *upage)
         break;
     }
     
-    if(!pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, p->writable))
+    if(!success || !pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, page_to_load->writable))
     {
         frame_remove_and_free_page(new_frame->kpage);
         return false;
     }
 
-    p->frame = new_frame;
-    frame_push_back(p->frame); //After init, push
+    page_to_load->frame = new_frame;
+    frame_push_back(page_to_load->frame); //After init, push
     return true;
 }
 

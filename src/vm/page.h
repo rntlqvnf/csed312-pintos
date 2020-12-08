@@ -22,7 +22,7 @@ struct page
         struct frame* frame;
         void* upage;
         
-        block_sector_t sector;
+        size_t swap_index;
         
         struct file* file;
         bool writable;
