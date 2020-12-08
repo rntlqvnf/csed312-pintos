@@ -223,6 +223,7 @@ syscall_handler(struct intr_frame *f)
         mapid_t mapping;
 
         check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 2 * sizeof(uintptr_t) - 1);
         mapping = *(mapid_t *)(esp + sizeof(uintptr_t));
 
         syscall_munmap (mapping);
