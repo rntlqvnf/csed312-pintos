@@ -17,6 +17,18 @@ static struct lock frames_lock;
 
 static struct list_elem* frame_clock_points;
 
+static inline bool
+is_head(struct list_elem *elem)
+{
+    return elem != NULL && elem->prev == NULL && elem->next != NULL;
+}
+
+static inline bool
+is_interior(struct list_elem *elem)
+{
+    return elem != NULL && elem->prev != NULL && elem->next != NULL;
+}
+
 void
 frame_init (void)
 {
@@ -213,16 +225,4 @@ uint32_t *
 get_pagedir_of_frame(struct frame* frame)
 {
     return frame->page->thread->pagedir;
-}
-
-static inline bool
-is_head(struct list_elem *elem)
-{
-    return elem != NULL && elem->prev == NULL && elem->next != NULL;
-}
-
-static inline bool
-is_interior(struct list_elem *elem)
-{
-    return elem != NULL && elem->prev != NULL && elem->next != NULL;
 }

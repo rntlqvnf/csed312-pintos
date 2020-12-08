@@ -32,6 +32,8 @@ static int syscall_read(int, void *, unsigned);
 static int syscall_write(int, const void *, unsigned);
 static void syscall_seek(int, unsigned);
 static unsigned syscall_tell(int);
+static mapid_t syscall_mmap (int, void *);
+static void syscall_munmap (mapid_t);
 
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
@@ -201,6 +203,29 @@ syscall_handler(struct intr_frame *f)
         fd = *(int *)(esp + sizeof(uintptr_t));
 
         syscall_close(fd);
+        break;
+    }
+    case SYS_MMAP:
+    {
+        int fd;
+        void* addr;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        check_vaddr(esp + 3 * sizeof(uintptr_t) - 1);
+        fd = *(int *)(esp + sizeof(uintptr_t));
+        addr = *(void **)(esp + 2 * sizeof(uintptr_t));
+
+        f->eax = syscall_mmap (fd, addr);
+        break;
+    }
+    case SYS_MUNMAP:
+    {
+        mapid_t mapping;
+
+        check_vaddr(esp + sizeof(uintptr_t));
+        mapping = *(mapid_t *)(esp + sizeof(uintptr_t));
+
+        syscall_munmap (mapping);
         break;
     }
     default:
@@ -448,4 +473,18 @@ void syscall_close(int fd)
     list_remove(&fde->fdtelem);
     palloc_free_page(fde);
     lock_release(&filesys_lock);
+}
+
+static mapid_t
+syscall_mmap (int fd, void *addr)
+{
+    //TODO
+    return -1;
+}
+
+static void
+syscall_munmap (mapid_t mapping)
+{
+    //TODO
+    return;
 }
