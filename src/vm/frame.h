@@ -25,5 +25,6 @@ struct frame* frame_to_evict(void);
 struct frame* frame_evict_and_reassign(struct page* page);
 uint32_t* get_pagedir_of_frame(struct frame* frame);
 bool swap_frame(struct page* page, struct frame* frame);
+struct frame* frame_clock_forward(void);
 
 #endif

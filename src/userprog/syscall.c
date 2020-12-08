@@ -213,7 +213,6 @@ syscall_handler(struct intr_frame *f)
 static void
 check_vaddr(const void *vaddr)
 {
-
     if (!vaddr || !is_user_vaddr(vaddr) || !page_find_by_upage(pg_round_down(vaddr)))
         syscall_exit(-1);
 }

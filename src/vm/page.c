@@ -118,8 +118,7 @@ page_load(void *upage)
 bool
 page_load_with_file(struct frame* f,struct page* p)
 {
-    file_seek(p->file, p->ofs);
-    if (file_read(p->file, f->kpage, p->read_bytes) != (int) p->read_bytes)
+    if (file_read_at(p->file, f->kpage, p->read_bytes, p->ofs) != (int) p->read_bytes)
     {
         frame_remove_and_free_page(f->kpage);
         return false;

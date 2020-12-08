@@ -555,10 +555,7 @@ setup_stack(void **esp)
 {
     if(!page_set_with_zero(PHYS_BASE - PGSIZE))
         return false;
-    
-    if(!page_load(PHYS_BASE - PGSIZE))
-        return false;
-    
+        
     *esp = PHYS_BASE;
     return true;
 }
