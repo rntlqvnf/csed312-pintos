@@ -1,6 +1,7 @@
 #include "vm/page.h"
 #include <hash.h>
 #include <stdio.h>
+#include <bitmap.h>
 #include "vm/frame.h"
 #include "vm/swap.h"
 #include "threads/thread.h"
@@ -25,7 +26,7 @@ page_set_with_file(
         new_page->read_bytes = read_bytes;
         new_page->zero_bytes = zero_bytes;
         new_page->writable = writable;
-        new_page->swap_index = -1;
+        new_page->swap_index = BITMAP_ERROR;
         new_page->thread = thread_current();
         new_page->frame = NULL;
         new_page->type = is_mmap ? PAGE_MMAP : PAGE_FILE;
@@ -56,7 +57,7 @@ page_set_with_zero(void *upage)
         new_page->read_bytes = 0;
         new_page->zero_bytes = 0;
         new_page->writable = true;
-        new_page->swap_index = -1;
+        new_page->swap_index = BITMAP_ERROR;
         new_page->thread = thread_current();
         new_page->frame = NULL;
         new_page->type = PAGE_ZERO;

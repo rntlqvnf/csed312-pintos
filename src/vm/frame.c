@@ -1,6 +1,7 @@
 #include "vm/frame.h"
 #include <stdio.h>
 #include <list.h>
+#include <bitmap.h>
 #include "vm/page.h"
 #include "vm/swap.h"
 #include "threads/malloc.h"
@@ -115,7 +116,7 @@ bool
 swap_frame(struct page* page, struct frame* frame)
 {
     page->swap_index = swap_out(frame->kpage);
-    if(page->swap_index == (size_t) -1) 
+    if(page->swap_index == BITMAP_ERROR) 
         return false;
     else 
     {

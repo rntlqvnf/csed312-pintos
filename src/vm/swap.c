@@ -1,5 +1,6 @@
 #include "vm/swap.h"
 #include <bitmap.h>
+#include <debug.h>
 #include "vm/frame.h"
 #include "vm/page.h"
 #include "threads/vaddr.h"
@@ -31,7 +32,7 @@ swap_in(void *kpage, size_t swap_index)
 
     ASSERT(kpage != NULL);
 
-    if(swap_index < 0 || swap_index >= bitmap_size(swap_bitmap) || bitmap_test(swap_bitmap, swap_index))
+    if(swap_index >= bitmap_size(swap_bitmap) || bitmap_test(swap_bitmap, swap_index))
     {
         lock_release(&swap_lock);
         return false;
@@ -58,7 +59,7 @@ swap_out(void *kpage)
 
     size_t swap_index = bitmap_scan_and_flip (swap_bitmap, 0, 1, true);
     if (swap_index == BITMAP_ERROR)
-        return (size_t) -1;
+        return swap_index;
     
     for(size_t i = 0; i < NUM_SECTORS_PER_PAGE; i++)
         block_write(swap_block_device, swap_index * NUM_SECTORS_PER_PAGE + i, kpage + BLOCK_SECTOR_SIZE * i);
