@@ -78,6 +78,7 @@ frame_evict_and_reassign(struct page* page)
     
     if(!frame_evict(frame)) return NULL;
     frame_page_reassign_and_remove_list(frame, page);
+    return frame;
 }
 
 

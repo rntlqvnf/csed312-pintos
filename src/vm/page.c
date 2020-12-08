@@ -140,7 +140,7 @@ page_destory (struct hash_elem *e, void *aux UNUSED)
 {
     struct page* p = hash_entry(e, struct page, elem);
     if(p->frame)
-        frame_remove(p->frame);
+        frame_remove(p->frame->kpage);
     free(p);
 }
 
