@@ -23,6 +23,12 @@ is_tail(struct list_elem *elem)
     return elem != NULL && elem->prev != NULL && elem->next == NULL;
 }
 
+static inline bool
+is_back(struct list_elem *elem)
+{
+    return list_back(&frames) == elem;
+}
+
 void
 frame_init (void)
 {
@@ -67,10 +73,9 @@ struct frame*
 frame_evict_and_reassign(struct page* page)
 {
     ASSERT (lock_held_by_current_thread (&frames_lock));
-
     struct frame* frame = frame_to_evict();
     if(frame == NULL) return NULL;
-
+    
     if(!frame_evict(frame)) return NULL;
     frame_page_reassign_and_remove_list(frame, page);
 }
@@ -135,7 +140,7 @@ frame_clock_forward(void)
     ASSERT (lock_held_by_current_thread (&frames_lock));
 
     struct list_elem* next_elem;
-    if(is_tail(frame_clock_points)) next_elem = list_front(&frames);
+    if(is_tail(frame_clock_points) || is_back(frame_clock_points)) next_elem = list_front(&frames);
     else next_elem = list_next(frame_clock_points);
 
     frame_clock_points = next_elem;
