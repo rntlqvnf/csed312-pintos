@@ -81,6 +81,8 @@ frame_evict(struct frame* frame)
     bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), frame->page->upage);
     //TODO : Evcition
 
+    
+
     frame->page->frame = NULL;
     pagedir_clear_page(get_pagedir_of_frame(frame), frame->page->upage);
     return true;

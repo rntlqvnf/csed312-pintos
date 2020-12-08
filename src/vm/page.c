@@ -10,7 +10,7 @@
 bool
 page_set_with_file(
     void* upage, struct file* file, off_t ofs, uint32_t read_bytes, 
-    uint32_t zero_bytes, bool writable)
+    uint32_t zero_bytes, bool writable, bool is_mmap)
 {
     if(page_find_by_upage(upage) != NULL)
         return false;
@@ -27,6 +27,7 @@ page_set_with_file(
         new_page->sector = (block_sector_t) -1;
         new_page->thread = thread_current();
         new_page->frame = NULL;
+        new_page->type = is_mmap ? PAGE_MMAP : PAGE_FILE;
 
         hash_insert(thread_current()->pages, &new_page->elem);
         return true;
@@ -35,6 +36,8 @@ page_set_with_file(
     {
         return false;
     }
+
+    return is_mmap ? 1 : 2;
 }
 
 bool
@@ -55,6 +58,7 @@ page_set_with_zero(void *upage)
         new_page->sector = (block_sector_t) -1;
         new_page->thread = thread_current();
         new_page->frame = NULL;
+        new_page->type = PAGE_ZERO;
 
         hash_insert(thread_current()->pages, &new_page->elem);
         return true;
@@ -76,23 +80,23 @@ page_load(void *upage)
     if(new_frame == NULL)
         return false;
     
-    if(p->sector != (block_sector_t) -1)
+    switch (p->type)
     {
-        // TODO: swap
-    }
-    else if(p->file != NULL)
-    {
-        file_seek(p->file, p->ofs);
-        if (file_read(p->file, new_frame->kpage, p->read_bytes) != (int) p->read_bytes)
-        {
-            frame_remove_and_free_page(new_frame->kpage);
-            return false;
-        }
-        memset(new_frame->kpage + p->read_bytes, 0, p->zero_bytes);
-    }
-    else
-    {
-      memset(new_frame->kpage, 0, PGSIZE);
+    case PAGE_SWAP:
+        break;
+    
+    case PAGE_FILE:
+    case PAGE_MMAP:
+        page_load_with_file(new_frame, p);
+        break;
+    
+    case PAGE_ZERO:
+        memset(new_frame->kpage, 0, PGSIZE);
+        break;
+
+    default:
+        NOT_REACHED();
+        break;
     }
     
     if(!pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, p->writable))
@@ -103,6 +107,19 @@ page_load(void *upage)
 
     p->frame = new_frame;
     frame_push_back(p->frame); //After init, push
+    return true;
+}
+
+bool
+page_load_with_file(struct frame* f,struct page* p)
+{
+    file_seek(p->file, p->ofs);
+    if (file_read(p->file, f->kpage, p->read_bytes) != (int) p->read_bytes)
+    {
+        frame_remove_and_free_page(f->kpage);
+        return false;
+    }
+    memset(f->kpage + p->read_bytes, 0, p->zero_bytes);
     return true;
 }
 
