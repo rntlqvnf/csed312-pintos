@@ -8,5 +8,6 @@
 void swap_init(void);
 bool swap_in(void *kpage, size_t sector);
 size_t swap_out(void *kpage);
+void swap_remove(size_t swap_index);
 
 #endif

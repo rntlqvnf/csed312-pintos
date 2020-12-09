@@ -168,7 +168,6 @@ frame_page_reassign_and_remove_list(struct frame* frame, struct page* page)
     list_remove(&frame->elem);
 }
 
-/* Remove frame by kpage */
 void
 frame_remove_and_free_page(void *kpage)
 {
@@ -176,27 +175,13 @@ frame_remove_and_free_page(void *kpage)
     struct frame* frame_to_remove = frame_find_by_kpage(kpage);
     if(frame_to_remove != NULL)
     {
+        if(frame_clock_points == frame_to_remove) frame_clock_points = list_next(&frames);
         list_remove(&frame_to_remove->elem);
         free(frame_to_remove);
         palloc_free_page(frame_to_remove->kpage);
     }
     lock_release(&frames_lock);
 }
-
-/* Remove frame by kpage without palloc_free_page */
-void
-frame_remove(void *kpage)
-{
-    lock_acquire(&frames_lock);
-    struct frame* frame_to_remove = frame_find_by_kpage(kpage);
-    if(frame_to_remove != NULL)
-    {
-        list_remove(&frame_to_remove->elem);
-        free(frame_to_remove);
-    }
-    lock_release(&frames_lock);
-}
-
 
 /* Find frame in frames by kpage. If not found, return NULL 
     Be sure that before calling this method, please get lock */

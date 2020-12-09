@@ -9,14 +9,12 @@ struct frame
     {
         void *kpage;
         struct page* page;
-        bool is_loaded;
         struct list_elem elem;
     };
 
 void frame_init (void);
 struct frame* frame_allocate(struct page* page);
 void frame_push_back(struct frame* frame);
-void frame_remove(void *kpage);
 void frame_remove_and_free_page(void *kpage);
 struct frame * frame_find_by_kpage(void *kpage);
 void frame_page_reassign_and_remove_list(struct frame* f, struct page* p);

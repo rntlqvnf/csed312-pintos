@@ -67,3 +67,11 @@ swap_out(void *kpage)
     lock_release(&swap_lock);
     return swap_index;
 }
+
+void
+swap_remove(size_t swap_index)
+{
+    lock_acquire(&swap_lock);
+    if(swap_index != BITMAP_ERROR) bitmap_flip (swap_bitmap, swap_index);
+    lock_release(&swap_lock);
+}
