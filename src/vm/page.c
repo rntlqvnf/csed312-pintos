@@ -38,8 +38,6 @@ page_set_with_file(
     {
         return false;
     }
-
-    return is_mmap ? 1 : 2;
 }
 
 bool
@@ -106,7 +104,7 @@ page_load(void *upage)
     
     if(!success || !pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, page_to_load->writable))
     {
-        frame_remove_and_free_page(new_frame->kpage);
+        frame_remove_and_free_page(new_frame);
         return false;
     }
 
@@ -120,7 +118,7 @@ page_load_with_file(struct frame* f,struct page* p)
 {
     if (file_read_at(p->file, f->kpage, p->read_bytes, p->ofs) != (int) p->read_bytes)
     {
-        frame_remove_and_free_page(f->kpage);
+        frame_remove_and_free_page(f);
         return false;
     }
     memset(f->kpage + p->read_bytes, 0, p->zero_bytes);
@@ -140,7 +138,7 @@ page_destory (struct hash_elem *e, void *aux UNUSED)
 {
     struct page* p = hash_entry(e, struct page, elem);
     if(p->frame)
-        frame_remove(p->frame->kpage);
+        frame_remove(p->frame);
     if(p->swap_index != BITMAP_ERROR) 
         swap_remove(p->swap_index);
     free(p);
