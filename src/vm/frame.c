@@ -183,6 +183,21 @@ frame_remove_and_free_page(void *kpage)
     lock_release(&frames_lock);
 }
 
+void
+frame_remove(void *kpage)
+{
+    lock_acquire(&frames_lock);
+    struct frame* frame_to_remove = frame_find_by_kpage(kpage);
+    if(frame_to_remove != NULL)
+    {
+        if(frame_clock_points == frame_to_remove) frame_clock_points = list_next(&frames);
+        list_remove(&frame_to_remove->elem);
+        free(frame_to_remove);
+    }
+    lock_release(&frames_lock);
+}
+
+
 /* Find frame in frames by kpage. If not found, return NULL 
     Be sure that before calling this method, please get lock */
 struct frame *
