@@ -88,8 +88,7 @@ frame_evict(struct frame* frame)
     ASSERT (lock_held_by_current_thread (&frames_lock));
 
     struct page* page = frame->page;
-    bool dirty = 
-        pagedir_is_dirty(get_pagedir_of_frame(frame), page->upage)
+    bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), page->upage)
         || pagedir_is_dirty(get_pagedir_of_frame(frame), frame->kpage);
 
     page->prev_type = page->type;
