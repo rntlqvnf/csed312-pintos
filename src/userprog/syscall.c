@@ -585,6 +585,7 @@ register_new_mmap(struct file* file, void* base, int page_count)
     struct file_mapping* m = malloc(sizeof(*m));
     m->file = file;
     m->base = base;
+    m->page_count = page_count;
     m->mapid = thread_current()->number_mapped++;
     list_push_back(&thread_current()->file_mapping_list, &m->elem);
     return m->mapid;
