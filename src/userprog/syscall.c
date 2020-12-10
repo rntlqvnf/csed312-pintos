@@ -531,9 +531,7 @@ static void
 syscall_munmap (mapid_t mapping)
 {
     struct file_mapping *m = get_file_mapping_by_mapid(mapping);
-    
     if(m == NULL) return;
-    
     unmap(m);
 }
 
@@ -546,17 +544,10 @@ mmap_file_write_at(struct file* file, void* addr, uint32_t read_bytes, off_t ofs
     lock_release(&filesys_lock);
 }
 
-static void
-clear_previous_pages(void* addr, off_t ofs)
-{
-    for(int i = 0 ; i < ofs; i = i + PGSIZE)
-        page_destory_by_upage(pg_round_down(addr + i), true);
-}
-
 static mapid_t
 register_new_mmap(struct file* file, void* base, int page_count)
 {
-    struct file_mapping* m = malloc(sizeof(*m));
+    struct file_mapping* m = malloc(sizeof(struct file_mapping));
     m->file = file;
     m->base = base;
     m->page_count = page_count;
@@ -568,19 +559,15 @@ register_new_mmap(struct file* file, void* base, int page_count)
 static struct file_mapping*
 get_file_mapping_by_mapid(mapid_t id)
 {
+    struct list *list = &thread_current ()->file_mapping_list;
     struct list_elem *e;
-    struct file_mapping *m = NULL;
-    struct list _list = thread_current()->file_mapping_list;
-
-    for(e = list_begin (&_list); e != list_end (&_list); e = list_next (e))
+    for (e = list_begin (list); e != list_end (list); e = list_next (e))
     {
-        m = list_entry (e, struct file_mapping, elem);
-        if (m->mapid == id)
-        {
-            break;
-        }
+        struct file_mapping *mmap = list_entry (e, struct file_mapping, elem);
+        if (mmap->mapid == id)
+            return mmap;
     }
-    return m;
+    return NULL;
 }
 
 void
@@ -594,18 +581,25 @@ unmap(struct file_mapping* m)
         if(page == NULL) continue;
         if(page->frame)
         {
-            if(pagedir_is_dirty (page->thread->pagedir, page->upage) || pagedir_is_dirty (page->thread->pagedir, page->frame->kpage))
+            if(pagedir_is_dirty (page->thread->pagedir, page->upage))
                 file_write_at(page->file, page->frame->kpage, PGSIZE, PGSIZE * i);
             frame_remove(page->frame, true);
         }
-        
         pagedir_clear_page (page->thread->pagedir, page->upage);
         hash_delete (page->thread->pages, &page->elem);
     }
-    
+
     list_remove(&m->elem);
     file_close(m->file);
     free(m);
     lock_release (&filesys_lock);
     return;
+}
+
+
+static void
+clear_previous_pages(void* addr, off_t ofs)
+{
+    for(int i = 0 ; i < ofs; i = i + PGSIZE)
+        page_destory_by_upage(pg_round_down(addr + i), true);
 }

@@ -169,6 +169,9 @@ void process_exit(void)
     /* Set exit flag, remove all of the current process's exited children,
      close all of its files, and notify its parent of its termination.
      Finally, free its page if it is orphaned. */
+
+    unmap_all();
+
     pcb->is_exited = true;
     for (e = list_begin(children); e != list_end(children); e = list_next(e))
         process_remove_child(list_entry(e, struct process, childelem));
@@ -184,7 +187,6 @@ void process_exit(void)
     lock_release(filesys_lock);
 
     /* Destory page table */
-    unmap_all();
     page_exit();
 
     /* Destroy the current process's page directory and switch back
@@ -210,11 +212,11 @@ unmap_all()
 {
     struct list_elem *e;
     struct file_mapping *m;
-    struct list _list = thread_current()->file_mapping_list;
-    
-    for(e = list_begin (&_list); e != list_end (&_list); e = list_next (e))
+    for (e = list_begin (&thread_current()->file_mapping_list); e != list_end (&thread_current()->file_mapping_list);)
     {
-        unmap(list_entry(e, struct file_mapping, elem));
+        struct file_mapping *mmap = list_entry (e, struct file_mapping, elem);
+        e = list_next (e);
+        unmap (mmap);
     }
 }
 
