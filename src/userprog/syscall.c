@@ -483,6 +483,14 @@ void syscall_close(int fd)
     lock_release(&filesys_lock);
 }
 
+struct file_mapping{
+  mapid_t mapid;
+  struct file* file;
+  struct list_elem elem;
+  void* base;
+  int page_count;
+};
+
 static mapid_t
 syscall_mmap (int fd, void *addr)
 {

@@ -1,15 +1,9 @@
 #ifndef USERPROG_SYSCALL_H
 #define USERPROG_SYSCALL_H
 
-struct lock filesys_lock;
+#include "filesys/filesys.h"
 
-struct file_mapping{
-  mapid_t mapid;
-  struct file* file;
-  struct list_elem elem;
-  void* base;
-  int page_count;
-};
+struct lock filesys_lock;
 
 void syscall_init(void);
 
