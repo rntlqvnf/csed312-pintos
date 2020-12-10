@@ -182,11 +182,11 @@ frame_remove(struct frame* frame_to_remove, bool is_free_page)
     if(frame_clock_points == &frame_to_remove->elem) 
         frame_clock_points = list_next(frame_clock_points);
 
-    list_remove(&frame_to_remove->elem);
-    free(frame_to_remove);
-
     if(is_free_page) 
         palloc_free_page(frame_to_remove->kpage);
+    
+    list_remove(&frame_to_remove->elem);
+    free(frame_to_remove);
 
     lock_release(&frames_lock);
 }

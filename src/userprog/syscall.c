@@ -497,8 +497,7 @@ syscall_mmap (int fd, void *addr)
     struct file_descriptor_entry *fde = process_get_fde(fd);
     off_t len;
     struct file* file;
-
-    if(!is_user_vaddr(addr) == 0 || pg_ofs(addr) != 0)
+    if(!is_user_vaddr(addr) || pg_ofs(addr) != 0)
     {
         return -1;
     }
@@ -549,15 +548,17 @@ syscall_munmap (mapid_t mapping)
     for(int i=0; i< m->page_count ; i++)
     {
         struct page* page = page_find_by_upage(pg_round_down(m->base + PGSIZE * i));
-        if(page->frame)
+        if(page != NULL && page->frame)
         {
+            // TODO: DIRTY
             file_write_at(page->file, page->upage, PGSIZE, PGSIZE * i);
             frame_remove(page->frame, true);
         }
+        pagedir_clear_page (page->thread->pagedir, page->upage);
+        hash_delete (page->thread->pages, &page->elem);
     }
 
     list_remove(&m->elem);
-    file_close(m->file);
     free(m);
     lock_release (&filesys_lock);
     return;
