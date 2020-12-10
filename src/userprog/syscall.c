@@ -16,6 +16,8 @@
 #include "userprog/process.h"
 #include "vm/page.h"
 
+struct lock filesys_lock;
+
 static void syscall_handler(struct intr_frame *);
 
 static void check_vaddr(const void *);
@@ -478,7 +480,6 @@ void syscall_close(int fd)
 static mapid_t
 syscall_mmap (int fd, void *addr)
 {
-    //TODO
     struct file_descriptor_entry *fde = process_get_fde(fd);
     struct file_mapping* m=malloc(sizeof(*m));
 
@@ -513,7 +514,7 @@ syscall_mmap (int fd, void *addr)
     {
         int read_bytes=len>=PGSIZE ? PGSIZE : len;
         int zero_bytes=len<PGSIZE ? (PGSIZE-len) : 0;
-        if(page_create_with_file(((const void*) m->base)+ofs, m->file, ofs, read_bytes, zero_bytes, true, true)==false)
+        if(!page_create_with_file(((const void*) m->base)+ofs, m->file, ofs, read_bytes, zero_bytes, true, true))
         {
             return -1;
         }
@@ -521,7 +522,6 @@ syscall_mmap (int fd, void *addr)
         len-=read_bytes;
         m->page_count++;
     }
-    
 
     return m->mapid;
 }
@@ -529,7 +529,6 @@ syscall_mmap (int fd, void *addr)
 static void
 syscall_munmap (mapid_t mapping)
 {
-    //TODO
     struct thread* cur=thread_current();
     struct list_elem *e;
     struct file_mapping *m;
@@ -564,4 +563,13 @@ syscall_munmap (mapid_t mapping)
     }
     
     return 0;
+}
+
+void
+mmap_file_write_at(struct file* file, void* addr, uint32_t read_bytes, off_t ofs)
+{
+    ASSERT(file != NULL);
+    lock_acquire(&filesys_lock);
+    file_write_at(file, addr, read_bytes, ofs);
+    lock_release(&filesys_lock);
 }

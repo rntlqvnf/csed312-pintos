@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.h"
 
 static struct list frames;
 
@@ -99,9 +100,7 @@ frame_evict(struct frame* frame)
     
     case PAGE_MMAP:
         if(dirty)
-        {
-            file_write_at(page->file, page->upage, page->read_bytes, page->ofs);
-        }
+            mmap_file_write_at(page->file, frame->kpage, page->read_bytes, page->ofs);
         break;
     
     case PAGE_FILE:
