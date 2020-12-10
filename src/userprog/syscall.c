@@ -16,8 +16,6 @@
 #include "userprog/process.h"
 #include "vm/page.h"
 
-struct lock filesys_lock;
-
 static void syscall_handler(struct intr_frame *);
 
 static void check_vaddr(const void *);
