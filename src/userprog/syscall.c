@@ -528,7 +528,7 @@ syscall_mmap (int fd, void *addr)
             file_close(file);
             return -1;
         }
-        ofs+read_bytes;
+        ofs+=read_bytes;
         len-=read_bytes;
         page_count++;
     }
@@ -548,12 +548,14 @@ syscall_munmap (mapid_t mapping)
     for(int i=0; i< m->page_count ; i++)
     {
         struct page* page = page_find_by_upage(pg_round_down(m->base + PGSIZE * i));
-        if(page != NULL && page->frame)
+        if(page == NULL) continue;
+        if(page->frame)
         {
-            // TODO: DIRTY
-            file_write_at(page->file, page->upage, PGSIZE, PGSIZE * i);
+            if(pagedir_is_dirty (page->thread->pagedir, page->upage) || pagedir_is_dirty (page->thread->pagedir, page->frame->kpage))
+                file_write_at(m->file, page->frame->kpage, PGSIZE, PGSIZE * i);
             frame_remove(page->frame, true);
         }
+        
         pagedir_clear_page (page->thread->pagedir, page->upage);
         hash_delete (page->thread->pages, &page->elem);
     }
