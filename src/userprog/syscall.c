@@ -36,6 +36,11 @@ static unsigned syscall_tell(int);
 static mapid_t syscall_mmap (int, void *);
 static void syscall_munmap (mapid_t);
 
+
+static void clear_previous_pages(void* addr, off_t ofs);
+static mapid_t register_new_mmap(struct file* file, void* base, int page_count);
+static struct file_mapping* get_file_mapping_by_mapid(mapid_t id);
+
 /* Registers the system call interrupt handler. */
 void syscall_init(void)
 {
@@ -481,88 +486,65 @@ static mapid_t
 syscall_mmap (int fd, void *addr)
 {
     struct file_descriptor_entry *fde = process_get_fde(fd);
-    struct file_mapping* m=malloc(sizeof(*m));
+    off_t len;
+    struct file* file;
 
-    if(m==NULL || addr == 0 || addr == NULL)
+    if(!is_user_vaddr(addr) == 0 || pg_ofs(addr) != 0)
     {
         return -1;
     }
-    thread_current()->number_mapped++;
-    m->mapid=thread_current()->number_mapped;
     
     lock_acquire(&filesys_lock);
-    m->file=file_reopen(fde->file);
-    lock_release(&filesys_lock);
-
-    if(m->file == NULL)
+    file = file_reopen(fde->file);
+    if(file == NULL)
     {
-        free(m);
+        lock_release(&filesys_lock);
         return -1;
     }
-    m->base=addr;
-
-    list_push_front(&thread_current()->file_mapping_list, &m->elem);
-
-    lock_acquire(&filesys_lock);
-    off_t len=file_length(m->file);
-    lock_release(&filesys_lock);
-    
-    int ofs=0;
-    m->page_count=0;
-
-    while(len>0)
+    else
     {
-        int read_bytes=len>=PGSIZE ? PGSIZE : len;
-        int zero_bytes=len<PGSIZE ? (PGSIZE-len) : 0;
-        if(!page_create_with_file(((const void*) m->base)+ofs, m->file, ofs, read_bytes, zero_bytes, true, true))
+        len = file_length(file);
+        lock_release(&filesys_lock);
+    }
+    
+    off_t ofs=0;
+    int page_count = 0;
+    while(len > 0)
+    {
+        int read_bytes=len >= PGSIZE ? PGSIZE : len;
+        int zero_bytes=len < PGSIZE ? (PGSIZE - len) : 0;
+        if(!page_create_with_file(pg_round_down(addr + ofs), 
+            file, ofs, read_bytes, zero_bytes, true, true))
         {
+            clear_previous_pages(addr, ofs);
+            file_close(file);
             return -1;
         }
-        ofs+=read_bytes;
+        ofs+read_bytes;
         len-=read_bytes;
-        m->page_count++;
+        page_count++;
     }
 
-    return m->mapid;
+    return register_new_mmap(file, addr, page_count);
 }
 
 static void
 syscall_munmap (mapid_t mapping)
 {
-    struct thread* cur=thread_current();
-    struct list_elem *e;
-    struct file_mapping *m;
-    for(e = list_begin (&cur->file_mapping_list); e != list_end (&cur->file_mapping_list); e = list_next (e))
-    {
-        m = list_entry (e, struct file_mapping, elem);
-        if (m->mapid == mapping)
-        {
-            break;
-        }
-    }
+    struct file_mapping *m = get_file_mapping_by_mapid(mapping);
+    
+    if(m == NULL) return;
+
+    lock_acquire (&filesys_lock);
+    
+    for(int i=0; i< m->page_count ; i++)
+        page_destory_by_upage(page_find_by_upage(pg_round_down(m->base + PGSIZE * i)), true);
     
     list_remove(&m->elem);
-    for(int i=0; i<m->page_count; i++)
-    {
-        if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i))
-        {
-            lock_acquire (&filesys_lock);
-            file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE, PGSIZE*i);
-            lock_release (&filesys_lock);
-        }
-    }
-    
-    for(int i=0; i<m->page_count; i++)
-    {
-        struct page* p=page_find_by_upage(((const void*) m->base) + PGSIZE*i);
-        if(p->frame)
-            frame_remove(p->frame, false);
-        if(p->swap_index != BITMAP_ERROR) 
-            swap_remove(p->swap_index);
-        free(p);
-    }
-    
-    return 0;
+    file_close(m->file);
+    free(m);
+    lock_release (&filesys_lock);
+    return;
 }
 
 void
@@ -572,4 +554,40 @@ mmap_file_write_at(struct file* file, void* addr, uint32_t read_bytes, off_t ofs
     lock_acquire(&filesys_lock);
     file_write_at(file, addr, read_bytes, ofs);
     lock_release(&filesys_lock);
+}
+
+static void
+clear_previous_pages(void* addr, off_t ofs)
+{
+    for(int i = 0 ; i < ofs; i = i + PGSIZE)
+        page_destory_by_upage(pg_round_down(addr + i), true);
+}
+
+static mapid_t
+register_new_mmap(struct file* file, void* base, int page_count)
+{
+    struct file_mapping* m = malloc(sizeof(*m));
+    m->file = file;
+    m->base = base;
+    m->mapid = thread_current()->number_mapped++;
+    list_push_back(&thread_current()->file_mapping_list, &m->elem);
+    return m->mapid;
+}
+
+static struct file_mapping*
+get_file_mapping_by_mapid(mapid_t id)
+{
+    struct list_elem *e;
+    struct file_mapping *m = NULL;
+    struct list _list = thread_current()->file_mapping_list;
+    
+    for(e = list_begin (&_list); e != list_end (&_list); e = list_next (e))
+    {
+        m = list_entry (e, struct file_mapping, elem);
+        if (m->mapid == id)
+        {
+            break;
+        }
+    }
+    return m;
 }

@@ -7,7 +7,7 @@ struct file_mapping{
   mapid_t mapid;
   struct file* file;
   struct list_elem elem;
-  uint8_t* base;
+  void* base;
   int page_count;
 };
 

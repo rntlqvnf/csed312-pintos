@@ -41,6 +41,7 @@ void page_exit(void);
 void page_destory(struct hash_elem *e, void *aux);
 struct page* page_find_by_upage(void* upage);
 bool page_load_with_file(struct frame* f,struct page* p);
+void page_destory_by_upage (void* upage, bool);
     
 hash_hash_func page_hash_func;
 hash_less_func page_less_func;

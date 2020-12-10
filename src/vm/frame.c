@@ -30,6 +30,13 @@ is_back(struct list_elem *elem)
     return list_back(&frames) == elem;
 }
 
+static inline bool
+is_dirty(struct frame* frame)
+{
+    return pagedir_is_dirty(get_pagedir_of_frame(frame), frame->page->upage)
+    || pagedir_is_dirty(get_pagedir_of_frame(frame), frame->kpage);
+}
+
 void
 frame_init (void)
 {
@@ -89,7 +96,7 @@ frame_evict(struct frame* frame)
     ASSERT (lock_held_by_current_thread (&frames_lock));
 
     struct page* page = frame->page;
-    bool dirty = pagedir_is_dirty(get_pagedir_of_frame(frame), page->upage);
+    bool dirty = is_dirty(frame);
 
     page->prev_type = page->type;
     switch (page->type)
@@ -174,10 +181,17 @@ frame_remove(struct frame* frame_to_remove, bool is_free_page)
 
     if(frame_clock_points == &frame_to_remove->elem) 
         frame_clock_points = list_next(frame_clock_points);
+
+    if(is_dirty(frame_to_remove))
+        file_write_at (frame_to_remove->page->file, frame_to_remove->kpage, 
+        PGSIZE, frame_to_remove->page->ofs);
+
     list_remove(&frame_to_remove->elem);
     free(frame_to_remove);
+
     if(is_free_page) 
         palloc_free_page(frame_to_remove->kpage);
+
     lock_release(&frames_lock);
 }
 

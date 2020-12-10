@@ -158,6 +158,17 @@ page_find_by_upage(void* upage)
         return NULL;
 }
 
+void
+page_destory_by_upage (void* upage, bool is_free_page)
+{
+    struct page* p = page_find_by_upage(upage);
+    if(p->frame)
+        frame_remove(p->frame, is_free_page);
+    if(p->swap_index != BITMAP_ERROR) 
+        swap_remove(p->swap_index);
+    free(p);
+}
+
 unsigned
 page_hash_func (const struct hash_elem *e, void *aux UNUSED)
 {
