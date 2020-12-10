@@ -26,6 +26,7 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
 
 static void parse_line(const char *line, int *argc, char **argv);
 static void push_arguments(int argc, char **argv, void **esp);
+static void unmap_all();
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -183,6 +184,7 @@ void process_exit(void)
     lock_release(filesys_lock);
 
     /* Destory page table */
+    unmap_all();
     page_exit();
 
     /* Destroy the current process's page directory and switch back
@@ -200,6 +202,19 @@ void process_exit(void)
         thread_set_pagedir(NULL);
         pagedir_activate(NULL);
         pagedir_destroy(pd);
+    }
+}
+
+static void
+unmap_all()
+{
+    struct list_elem *e;
+    struct file_mapping *m;
+    struct list _list = thread_current()->file_mapping_list;
+    
+    for(e = list_begin (&_list); e != list_end (&_list); e = list_next (e))
+    {
+        unmap(list_entry(e, struct file_mapping, elem));
     }
 }
 

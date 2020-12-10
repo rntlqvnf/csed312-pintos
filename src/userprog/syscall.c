@@ -483,14 +483,6 @@ void syscall_close(int fd)
     lock_release(&filesys_lock);
 }
 
-struct file_mapping{
-  mapid_t mapid;
-  struct file* file;
-  struct list_elem elem;
-  void* base;
-  int page_count;
-};
-
 static mapid_t
 syscall_mmap (int fd, void *addr)
 {
@@ -521,8 +513,7 @@ syscall_mmap (int fd, void *addr)
     {
         int read_bytes=len >= PGSIZE ? PGSIZE : len;
         int zero_bytes=len < PGSIZE ? (PGSIZE - len) : 0;
-        if(!page_create_with_file(pg_round_down(addr + ofs), 
-            file, ofs, read_bytes, zero_bytes, true, true))
+        if(!page_create_with_file(addr + ofs, file, ofs, read_bytes, zero_bytes, true, true))
         {
             clear_previous_pages(addr, ofs);
             file_close(file);
@@ -542,28 +533,8 @@ syscall_munmap (mapid_t mapping)
     struct file_mapping *m = get_file_mapping_by_mapid(mapping);
     
     if(m == NULL) return;
-
-    lock_acquire (&filesys_lock);
-
-    for(int i=0; i< m->page_count ; i++)
-    {
-        struct page* page = page_find_by_upage(pg_round_down(m->base + PGSIZE * i));
-        if(page == NULL) continue;
-        if(page->frame)
-        {
-            if(pagedir_is_dirty (page->thread->pagedir, page->upage) || pagedir_is_dirty (page->thread->pagedir, page->frame->kpage))
-                file_write_at(m->file, page->frame->kpage, PGSIZE, PGSIZE * i);
-            frame_remove(page->frame, true);
-        }
-        
-        pagedir_clear_page (page->thread->pagedir, page->upage);
-        hash_delete (page->thread->pages, &page->elem);
-    }
-
-    list_remove(&m->elem);
-    free(m);
-    lock_release (&filesys_lock);
-    return;
+    
+    unmap(m);
 }
 
 void
@@ -600,7 +571,7 @@ get_file_mapping_by_mapid(mapid_t id)
     struct list_elem *e;
     struct file_mapping *m = NULL;
     struct list _list = thread_current()->file_mapping_list;
-    
+
     for(e = list_begin (&_list); e != list_end (&_list); e = list_next (e))
     {
         m = list_entry (e, struct file_mapping, elem);
@@ -610,4 +581,31 @@ get_file_mapping_by_mapid(mapid_t id)
         }
     }
     return m;
+}
+
+void
+unmap(struct file_mapping* m)
+{
+    lock_acquire (&filesys_lock);
+
+    for(int i=0; i< m->page_count ; i++)
+    {
+        struct page* page = page_find_by_upage(m->base + PGSIZE * i);
+        if(page == NULL) continue;
+        if(page->frame)
+        {
+            if(pagedir_is_dirty (page->thread->pagedir, page->upage) || pagedir_is_dirty (page->thread->pagedir, page->frame->kpage))
+                file_write_at(page->file, page->frame->kpage, PGSIZE, PGSIZE * i);
+            frame_remove(page->frame, true);
+        }
+        
+        pagedir_clear_page (page->thread->pagedir, page->upage);
+        hash_delete (page->thread->pages, &page->elem);
+    }
+    
+    list_remove(&m->elem);
+    file_close(m->file);
+    free(m);
+    lock_release (&filesys_lock);
+    return;
 }
