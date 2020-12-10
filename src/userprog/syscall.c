@@ -497,7 +497,7 @@ syscall_mmap (int fd, void *addr)
     struct file_descriptor_entry *fde = process_get_fde(fd);
     off_t len;
     struct file* file;
-    if(!is_user_vaddr(addr) || pg_ofs(addr) != 0)
+    if(addr == NULL || !is_user_vaddr(addr) || pg_ofs(addr) != 0)
     {
         return -1;
     }
