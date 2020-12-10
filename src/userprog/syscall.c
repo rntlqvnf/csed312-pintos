@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <bitmap.h>
 #include "devices/input.h"
 #include "devices/shutdown.h"
 #include "filesys/file.h"
@@ -548,9 +549,9 @@ syscall_munmap (mapid_t mapping)
     {
         if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i)
         {
-            lock_acquire (&fs_lock);
+            lock_acquire (&filesys_lock);
             file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE, PGSIZE*i);
-            lock_release (&fs_lock);
+            lock_release (&filesys_lock);
         }
     }
     

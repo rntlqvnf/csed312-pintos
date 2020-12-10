@@ -5,6 +5,7 @@
 #include "devices/block.h"
 #include "filesys/off_t.h"
 #include "threads/synch.h"
+#include "userprog/process.h"
 
 enum page_type
   {
