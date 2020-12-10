@@ -15,6 +15,7 @@
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 struct lock filesys_lock;
 
@@ -536,10 +537,17 @@ syscall_munmap (mapid_t mapping)
     if(m == NULL) return;
 
     lock_acquire (&filesys_lock);
-    
+
     for(int i=0; i< m->page_count ; i++)
-        page_destory_by_upage(page_find_by_upage(pg_round_down(m->base + PGSIZE * i)), true);
-    
+    {
+        struct page* page = page_find_by_upage(pg_round_down(m->base + PGSIZE * i));
+        if(page->frame)
+        {
+            file_write_at(page->file, page->upage, PGSIZE, PGSIZE * i);
+            frame_remove(page->frame, true);
+        }
+    }
+
     list_remove(&m->elem);
     file_close(m->file);
     free(m);
