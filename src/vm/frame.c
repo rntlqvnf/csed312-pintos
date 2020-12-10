@@ -155,11 +155,10 @@ swap_frame(struct page* page, struct frame* frame)
     page->swap_index = swap_out(frame->kpage);
     if(page->swap_index == BITMAP_ERROR) 
         return false;
-    else 
-    {
+    else
         page->type = PAGE_SWAP;
-        return true;
-    }
+    
+    return true;
 }
 
 void
@@ -170,7 +169,7 @@ frame_page_reassign_and_remove_list(struct frame* frame, struct page* page)
 }
 
 void
-frame_remove_and_free_page(struct frame* frame_to_remove)
+frame_remove(struct frame* frame_to_remove, bool is_free_page)
 {
     lock_acquire(&frames_lock);
     ASSERT(frame_to_remove != NULL);
@@ -179,41 +178,9 @@ frame_remove_and_free_page(struct frame* frame_to_remove)
         frame_clock_points = list_next(frame_clock_points);
     list_remove(&frame_to_remove->elem);
     free(frame_to_remove);
-    palloc_free_page(frame_to_remove->kpage);
+    if(is_free_page) 
+        palloc_free_page(frame_to_remove->kpage);
     lock_release(&frames_lock);
-}
-
-void
-frame_remove(struct frame* frame_to_remove)
-{
-    lock_acquire(&frames_lock);
-    ASSERT(frame_to_remove != NULL);
-
-    if(frame_clock_points == &frame_to_remove->elem) 
-        frame_clock_points = list_next(frame_clock_points);
-    list_remove(&frame_to_remove->elem);
-    free(frame_to_remove);
-    lock_release(&frames_lock);
-}
-
-
-/* Find frame in frames by kpage. If not found, return NULL 
-    Be sure that before calling this method, please get lock */
-struct frame *
-frame_find_by_kpage(void *kpage)
-{
-    ASSERT (lock_held_by_current_thread (&frames_lock));
-  
-    struct list_elem * elem;
-    for (elem = list_begin (&frames); elem != list_end (&frames);
-        elem = list_next (elem))
-        {
-            struct frame *f = list_entry (elem, struct frame, elem);
-            if (f->kpage == kpage)
-                return f;
-        }
-    
-    return NULL;
 }
 
 void

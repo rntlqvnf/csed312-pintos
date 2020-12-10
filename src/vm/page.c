@@ -10,7 +10,7 @@
 #include "filesys/file.h"
 
 bool
-page_set_with_file(
+page_create_with_file(
     void* upage, struct file* file, off_t ofs, uint32_t read_bytes, 
     uint32_t zero_bytes, bool writable, bool is_mmap)
 {
@@ -41,7 +41,7 @@ page_set_with_file(
 }
 
 bool
-page_set_with_zero(void *upage)
+page_create_with_zero(void *upage)
 {
     if(page_find_by_upage(upage) != NULL)
         return false;
@@ -53,7 +53,7 @@ page_set_with_zero(void *upage)
         new_page->file = NULL;
         new_page->ofs = 0;
         new_page->read_bytes = 0;
-        new_page->zero_bytes = 0;
+        new_page->zero_bytes = PGSIZE;
         new_page->writable = true;
         new_page->swap_index = BITMAP_ERROR;
         new_page->thread = thread_current();
@@ -104,7 +104,7 @@ page_load(void *upage)
     
     if(!success || !pagedir_set_page(thread_current ()->pagedir, upage, new_frame->kpage, page_to_load->writable))
     {
-        frame_remove_and_free_page(new_frame);
+        frame_remove(new_frame, true);
         return false;
     }
 
@@ -118,7 +118,7 @@ page_load_with_file(struct frame* f,struct page* p)
 {
     if (file_read_at(p->file, f->kpage, p->read_bytes, p->ofs) != (int) p->read_bytes)
     {
-        frame_remove_and_free_page(f);
+        frame_remove(f, true);
         return false;
     }
     memset(f->kpage + p->read_bytes, 0, p->zero_bytes);
@@ -138,7 +138,7 @@ page_destory (struct hash_elem *e, void *aux UNUSED)
 {
     struct page* p = hash_entry(e, struct page, elem);
     if(p->frame)
-        frame_remove(p->frame);
+        frame_remove(p->frame, false);
     if(p->swap_index != BITMAP_ERROR) 
         swap_remove(p->swap_index);
     free(p);

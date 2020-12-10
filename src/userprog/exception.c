@@ -158,7 +158,7 @@ page_fault(struct intr_frame *f)
 
     if(is_stack_access(fault_addr, f->esp))
     {
-        if(!page_set_with_zero(pg_round_down(fault_addr)))
+        if(!page_create_with_zero(pg_round_down(fault_addr)))
             syscall_exit(-1);
     }
 
