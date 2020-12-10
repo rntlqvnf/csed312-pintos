@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "threads/thread.h"
 #include "userprog/pagedir.h"
+#include "userprog/syscall.c"
 
 static struct list frames;
 
@@ -100,7 +101,11 @@ frame_evict(struct frame* frame)
     case PAGE_MMAP:
         if(dirty)
         {
-            //TODO: Write back
+            lock_acquire(&filesys_lock);
+            file_write_at() //frame과 관리를 어떻게 할 것인지에 대해서 고민해봐야함
+            lock_release(&filesys_lock);
+
+
         }
         break;
     

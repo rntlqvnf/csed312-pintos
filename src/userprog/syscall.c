@@ -480,12 +480,87 @@ static mapid_t
 syscall_mmap (int fd, void *addr)
 {
     //TODO
-    return -1;
+    struct file_descriptor_entry *fde = process_get_fde(fd);
+    struct file_mapping* m=malloc(sizeof(*m));
+
+    if(m==NULL || addr == 0 || addr == NULL)
+    {
+        return -1;
+    }
+    thread_current()->number_mapped++;
+    m->mapid=thread_current()->number_mapped;
+    
+    lock_acquire(&filesys_lock);
+    m->file=file_reopen(fde->file);
+    lock_release(&filesys_lock);
+
+    if(m->file == NULL)
+    {
+        free(m);
+        return -1;
+    }
+    m->base=addr;
+
+    list_push_front(&thread_current()->file_mapping_list, &m->elem);
+
+    lock_acquire(&filesys_lock);
+    off_t len=file_length(m->file);
+    lock_release(&filesys_lock);
+    
+    int ofs=0;
+    m->page_count=0;
+
+    while(len>0)
+    {
+        struct page* p;
+        //page allocate은 어떻게 해야하나??
+        //frame allocate도 해야하나??
+        // 이 둘의 순서는???
+        p->file=m->file;
+        p->ofs=ofs;
+        p->read_bytes=len>=PGSIZE ? PGSIZE : len;
+        p->zero_bytes=len<PGSIZE ? (p->zero_bytes=PGSIZE-len) : 0;
+        ofs+=p->read_bytes;
+        len-=p->read_bytes;
+        m->page_count++;
+        
+    }
+    
+
+    return ;
 }
 
 static void
 syscall_munmap (mapid_t mapping)
 {
     //TODO
-    return;
+    struct thread* cur=thread_current();
+    struct list_elem *e;
+    struct file_mapping *m;
+    for(e = list_begin (&cur->file_mapping_list); e != list_end (&cur->file_mapping_list); e = list_next (e))
+    {
+        m = list_entry (e, struct file_mapping, elem);
+        if (m->mapid == mapping)
+        {
+            break;
+        }
+    }
+
+    list_remove(&m->elem);
+    for(int i=0; i<m->page_count; i++)
+    {
+        if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i)
+        {
+            lock_acquire (&fs_lock);
+            file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE*(m->page_cnt), PGSIZE*i);
+            lock_release (&fs_lock);
+        }
+    }
+    
+    for(int i=0; i<m->page_count; i++)
+    {
+        //deallocate
+    }
+    
+    return 0;
 }

@@ -34,6 +34,14 @@ struct page
         enum page_type prev_type;
     };
 
+struct file_mapping{
+  mapid_t mapid;
+  struct file* file;
+  struct list_elem elem;
+  uint8_t* base;
+  int page_count;
+};
+
 bool page_set_with_file(void* upage, struct file* file, off_t ofs, uint32_t read_bytes,  uint32_t zero_bytes, bool writable, bool is_mmap);
 bool page_set_with_zero(void *upage);
 bool page_load(void *upage);

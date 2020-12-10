@@ -107,6 +107,9 @@ struct thread
     int nice;       /* Figure that indicates how nice to others. */
     int recent_cpu; /* Weighted average amount of received CPU time. */
 
+    int number_mapped;
+    struct list file_mapping_list;
+
 #ifdef USERPROG
     /* Shared between userprog/process.c and userprog/syscall.c. */
     uint32_t *pagedir;         /* Page directory. */
