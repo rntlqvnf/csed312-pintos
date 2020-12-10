@@ -18,9 +18,9 @@ void
 swap_init(void)
 {
     swap_block_device = block_get_role(BLOCK_SWAP);
-    if(swap_block_device == NULL) PANIC("Cannot get swap disk");
+    ASSERT(swap_block_device != NULL);
     swap_bitmap = bitmap_create(block_size(swap_block_device) / NUM_SECTORS_PER_PAGE);
-    if(swap_bitmap == NULL) PANIC("Cannot create swap bitmap");
+    ASSERT(swap_bitmap != NULL);
     bitmap_set_all (swap_bitmap, true);
     lock_init(&swap_lock);
 }
@@ -41,7 +41,7 @@ swap_in(void *kpage, size_t swap_index)
     for(size_t i = 0; i < NUM_SECTORS_PER_PAGE; i++)
         block_read(swap_block_device, swap_index * NUM_SECTORS_PER_PAGE + i, kpage + BLOCK_SECTOR_SIZE * i);
     
-    bitmap_flip (swap_bitmap, swap_index);
+    bitmap_flip(swap_bitmap, swap_index);
     lock_release(&swap_lock);
 
     return true;
@@ -72,6 +72,7 @@ void
 swap_remove(size_t swap_index)
 {
     lock_acquire(&swap_lock);
-    if(swap_index != BITMAP_ERROR) bitmap_flip (swap_bitmap, swap_index);
+    ASSERT(swap_index != BITMAP_ERROR);
+    bitmap_set(swap_bitmap, swap_index, true);
     lock_release(&swap_lock);
 }

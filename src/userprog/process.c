@@ -536,7 +536,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
         size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
 
-        if(!page_set_with_file(upage, file, ofs, page_read_bytes, page_zero_bytes, writable, false))
+        if(!page_create_with_file(upage, file, ofs, page_read_bytes, page_zero_bytes, writable, false))
             return false;
 
         /* Advance. */
@@ -553,7 +553,10 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 static bool
 setup_stack(void **esp)
 {
-    if(!page_set_with_zero(PHYS_BASE - PGSIZE))
+    if(!page_create_with_zero(PHYS_BASE - PGSIZE))
+        return false;
+    
+    if(!page_load(PHYS_BASE - PGSIZE))
         return false;
         
     *esp = PHYS_BASE;
