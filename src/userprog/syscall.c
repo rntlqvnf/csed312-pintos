@@ -547,7 +547,7 @@ syscall_munmap (mapid_t mapping)
     list_remove(&m->elem);
     for(int i=0; i<m->page_count; i++)
     {
-        if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i)
+        if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i))
         {
             lock_acquire (&filesys_lock);
             file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE, PGSIZE*i);
