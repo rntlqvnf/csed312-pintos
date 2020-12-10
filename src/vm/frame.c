@@ -103,10 +103,8 @@ frame_evict(struct frame* frame)
         if(dirty)
         {
             lock_acquire(&filesys_lock);
-            file_write_at() //frame과 관리를 어떻게 할 것인지에 대해서 고민해봐야함
+            file_write_at(page->file, page->upage, page->read_bytes, page->ofs); 
             lock_release(&filesys_lock);
-
-
         }
         break;
     

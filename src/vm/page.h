@@ -42,8 +42,8 @@ struct file_mapping{
   int page_count;
 };
 
-bool page_set_with_file(void* upage, struct file* file, off_t ofs, uint32_t read_bytes,  uint32_t zero_bytes, bool writable, bool is_mmap);
-bool page_set_with_zero(void *upage);
+bool page_create_with_file(void* upage, struct file* file, off_t ofs, uint32_t read_bytes,  uint32_t zero_bytes, bool writable, bool is_mmap);
+bool page_create_with_zero(void *upage);
 bool page_load(void *upage);
 void page_exit(void);
 void page_destory(struct hash_elem *e, void *aux);

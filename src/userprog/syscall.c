@@ -512,22 +512,19 @@ syscall_mmap (int fd, void *addr)
 
     while(len>0)
     {
-        struct page* p;
-        //page allocate은 어떻게 해야하나??
-        //frame allocate도 해야하나??
-        // 이 둘의 순서는???
-        p->file=m->file;
-        p->ofs=ofs;
-        p->read_bytes=len>=PGSIZE ? PGSIZE : len;
-        p->zero_bytes=len<PGSIZE ? (p->zero_bytes=PGSIZE-len) : 0;
-        ofs+=p->read_bytes;
-        len-=p->read_bytes;
+        int read_bytes=len>=PGSIZE ? PGSIZE : len;
+        int zero_bytes=len<PGSIZE ? (PGSIZE-len) : 0;
+        if(page_create_with_file(((const void*) m->base)+ofs, m->file, ofs, read_bytes, zero_bytes, true, true)==false)
+        {
+            return -1;
+        }
+        ofs+=read_bytes;
+        len-=read_bytes;
         m->page_count++;
-        
     }
     
 
-    return ;
+    return m->mapid;
 }
 
 static void
@@ -545,21 +542,26 @@ syscall_munmap (mapid_t mapping)
             break;
         }
     }
-
+    
     list_remove(&m->elem);
     for(int i=0; i<m->page_count; i++)
     {
         if(pagedir_is_dirty(thread_current()->pagedir, ((const void*) m->base) + PGSIZE*i)
         {
             lock_acquire (&fs_lock);
-            file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE*(m->page_cnt), PGSIZE*i);
+            file_write_at(m->file, ((const void*) m->base) + PGSIZE*i, PGSIZE, PGSIZE*i);
             lock_release (&fs_lock);
         }
     }
     
     for(int i=0; i<m->page_count; i++)
     {
-        //deallocate
+        struct page* p=page_find_by_upage(((const void*) m->base) + PGSIZE*i);
+        if(p->frame)
+            frame_remove(p->frame, false);
+        if(p->swap_index != BITMAP_ERROR) 
+            swap_remove(p->swap_index);
+        free(p);
     }
     
     return 0;
